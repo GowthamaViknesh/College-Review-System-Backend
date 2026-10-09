@@ -24,20 +24,20 @@ describe('what gets recorded', () => {
         const admin = await createUser('admin');
         const student = await createUser('student');
 
-        await request(app).patch(`/api/v1/users/${student.user.id}/role`).set('Authorization', admin.auth).send({ role: 'teacher' });
+        await request(app).patch(`/api/v1/users/${student.user.userId}/role`).set('Authorization', admin.auth).send({ role: 'teacher' });
 
         const [entry] = await logs();
         expect(entry).toMatchObject({
             actor: { username: admin.user.username },
             action: 'role:assign',
             outcome: 'success',
-            target: { type: 'user', id: student.user.id },
+            target: { type: 'user', id: student.user.userId },
             details: { role: 'teacher' },
             method: 'PATCH',
-            path: `/api/v1/users/${student.user.id}/role`,
+            path: `/api/v1/users/${student.user.userId}/role`,
             statusCode: 200,
         });
-        expect(entry.actor.id!.toString()).toBe(admin.user.id);
+        expect(entry.actor.id).toBe(admin.user.userId);
         expect(entry.ip).toEqual(expect.any(String));
         expect(entry.createdAt).toBeInstanceOf(Date);
     });
@@ -54,7 +54,7 @@ describe('what gets recorded', () => {
         expect(entry).toMatchObject({
             action: 'role:create',
             outcome: 'success',
-            target: { type: 'role', id: res.body.data.role._id },
+            target: { type: 'role', id: res.body.data.role.roleId },
             details: { name: 'moderator', permissions: ['review:delete:any'] },
             statusCode: 201,
         });
@@ -64,14 +64,14 @@ describe('what gets recorded', () => {
         const student = await createUser('student');
         const victim = await createUser('student');
 
-        await request(app).delete(`/api/v1/users/${victim.user.id}`).set('Authorization', student.auth);
+        await request(app).delete(`/api/v1/users/${victim.user.userId}`).set('Authorization', student.auth);
 
         const [entry] = await logs();
         expect(entry).toMatchObject({
             actor: { username: student.user.username },
             action: 'user:delete',
             outcome: 'denied',
-            target: { type: 'user', id: victim.user.id },
+            target: { type: 'user', id: victim.user.userId },
             details: { reason: 'You do not have permission to perform this action' },
             statusCode: 403,
         });
@@ -99,8 +99,8 @@ describe('what gets recorded', () => {
         const owner = await createUser('student');
         const other = await createUser('student');
         const college = await createCollege();
-        const created = await request(app).post('/api/v1/reviews').set('Authorization', owner.auth).send({ college: college.id, rating: 2, comment });
-        const reviewId = created.body.data.review._id;
+        const created = await request(app).post('/api/v1/reviews').set('Authorization', owner.auth).send({ college: college.collegeId, rating: 2, comment });
+        const reviewId = created.body.data.review.reviewId;
 
         await request(app).patch(`/api/v1/reviews/${reviewId}`).set('Authorization', other.auth).send({ rating: 5 });
 
@@ -152,9 +152,9 @@ describe('what gets recorded', () => {
         await request(app).get('/api/v1/colleges');
         await request(app).get('/api/v1/users').set('Authorization', admin.auth);
         await request(app).post('/api/v1/colleges').set('Authorization', admin.auth).send({ name: 'A' }); // 400
-        await request(app).delete('/api/v1/colleges/64b7f0000000000000000000').set('Authorization', admin.auth); // 404
+        await request(app).delete('/api/v1/colleges/Unknown0Unknown0').set('Authorization', admin.auth); // 404
         await request(app).post('/api/v1/colleges').set('Authorization', admin.auth).send({ name: 'anna university', city: 'Chennai', state: 'Tamil Nadu' }); // 409
-        await request(app).delete(`/api/v1/colleges/${college.id}`); // 401, nobody identified
+        await request(app).delete(`/api/v1/colleges/${college.collegeId}`); // 401, nobody identified
 
         expect(await logs()).toHaveLength(0);
     });
@@ -164,7 +164,7 @@ describe('what gets recorded', () => {
         const teacher = await createUser('teacher', { username: 'mrs-priya' });
         await request(app).post('/api/v1/colleges').set('Authorization', teacher.auth).send({ name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu' });
 
-        await request(app).delete(`/api/v1/users/${teacher.user.id}`).set('Authorization', admin.auth);
+        await request(app).delete(`/api/v1/users/${teacher.user.userId}`).set('Authorization', admin.auth);
 
         const entries = await logs();
         expect(entries.map((e) => `${e.actor.username} ${e.action}`)).toEqual(['mrs-priya college:create', `${admin.user.username} user:delete`]);
@@ -176,17 +176,17 @@ describe('what gets recorded', () => {
         const asAdmin = (method: 'post' | 'patch' | 'delete', path: string) => request(app)[method](`/api/v1${path}`).set('Authorization', admin.auth);
 
         const college = (await asAdmin('post', '/colleges').send({ name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu' })).body.data.college;
-        await asAdmin('patch', `/colleges/${college._id}`).send({ city: 'Madurai' });
-        const review = (await request(app).post('/api/v1/reviews').set('Authorization', student.auth).send({ college: college._id, rating: 4, comment })).body.data.review;
-        await request(app).patch(`/api/v1/reviews/${review._id}`).set('Authorization', student.auth).send({ rating: 5 });
-        await asAdmin('delete', `/reviews/${review._id}`);
-        await asAdmin('delete', `/colleges/${college._id}`);
+        await asAdmin('patch', `/colleges/${college.collegeId}`).send({ city: 'Madurai' });
+        const review = (await request(app).post('/api/v1/reviews').set('Authorization', student.auth).send({ college: college.collegeId, rating: 4, comment })).body.data.review;
+        await request(app).patch(`/api/v1/reviews/${review.reviewId}`).set('Authorization', student.auth).send({ rating: 5 });
+        await asAdmin('delete', `/reviews/${review.reviewId}`);
+        await asAdmin('delete', `/colleges/${college.collegeId}`);
         const role = (await asAdmin('post', '/roles').send({ name: 'moderator' })).body.data.role;
-        await asAdmin('patch', `/roles/${role._id}`).send({ permissions: ['review:delete:any'] });
-        await asAdmin('delete', `/roles/${role._id}`);
+        await asAdmin('patch', `/roles/${role.roleId}`).send({ permissions: ['review:delete:any'] });
+        await asAdmin('delete', `/roles/${role.roleId}`);
         const user = (await asAdmin('post', '/users').send({ username: 'made', email: 'made@example.com', password: 'password123' })).body.data.user;
-        await asAdmin('patch', `/users/${user._id}/role`).send({ role: 'teacher' });
-        await asAdmin('delete', `/users/${user._id}`);
+        await asAdmin('patch', `/users/${user.userId}/role`).send({ role: 'teacher' });
+        await asAdmin('delete', `/users/${user.userId}`);
 
         const entries = await logs();
         expect(entries.every((e) => e.outcome === 'success')).toBe(true);
@@ -276,14 +276,14 @@ describe('GET /api/v1/action-logs', () => {
     it('filters by actor, action, outcome, target and date range', async () => {
         const admin = await createUser('admin');
         const someone = await createUser('student');
-        const targetId = '64b7f0000000000000000001';
-        await entry({ actor: { id: someone.user.id, username: 'someone' }, action: 'review:create', target: { type: 'review', id: targetId } });
+        const targetId = 'Target00Target00';
+        await entry({ actor: { id: someone.user.userId, username: 'someone' }, action: 'review:create', target: { type: 'review', id: targetId } });
         await entry({ action: 'user:delete', outcome: 'denied', statusCode: 403, createdAt: new Date('2026-03-10T12:00:00Z') });
         await entry({ action: 'auth:login', outcome: 'failed', statusCode: 401, createdAt: new Date('2026-03-20T12:00:00Z') });
         const actions = async (query: string) =>
             (await request(app).get(`/api/v1/action-logs?${query}`).set('Authorization', admin.auth)).body.data.logs.map((l: { action: string }) => l.action);
 
-        expect(await actions(`actor=${someone.user.id}`)).toEqual(['review:create']);
+        expect(await actions(`actor=${someone.user.userId}`)).toEqual(['review:create']);
         expect(await actions('action=user:delete')).toEqual(['user:delete']);
         expect(await actions('outcome=failed')).toEqual(['auth:login']);
         expect(await actions(`targetType=review&targetId=${targetId}`)).toEqual(['review:create']);

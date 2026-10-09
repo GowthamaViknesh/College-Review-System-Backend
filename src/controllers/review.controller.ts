@@ -17,7 +17,7 @@ export const createReview: RequestHandler = async (req, res) => {
     setAudit(res, { details: { college: req.body.college, rating: req.body.rating } });
 
     const review = await reviewService.createReview(req.user!.id, req.body);
-    setAudit(res, { targetId: review.id });
+    setAudit(res, { targetId: review.reviewId });
     res.status(201).json({ success: true, data: { review } });
 };
 

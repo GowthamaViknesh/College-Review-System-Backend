@@ -16,7 +16,7 @@ export async function register(input: RegisterInput) {
     }
 
     const user = await createUserWithRole(input, DEFAULT_ROLE);
-    return { user, ...(await startSession(user.id)) };
+    return { user, ...(await startSession(user)) };
 }
 
 export async function login(email: string, password: string) {
@@ -27,9 +27,10 @@ export async function login(email: string, password: string) {
         throw new ApiError(401, 'Invalid email or password');
     }
 
-    return { user, ...(await startSession(user.id)) };
+    return { user, ...(await startSession(user)) };
 }
 
+// In this file a userId parameter is MongoDB's id of the logged-in user, taken from the request by the controller
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
     const other = await userRepository.findOtherByEmailOrUsername(userId, input);
     if (other) {
@@ -42,16 +43,19 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
     return user;
 }
 
-export async function setAvatar(userId: string, file: Buffer) {
-    // A new upload takes the place of the previous picture in storage, so there is nothing to remove first
-    const avatar = await uploadImage(file, 'avatar', userId);
+// The picture is stored under the user's public id, since that name is visible in the picture's address
+export async function setAvatar(me: { id: string; userId: string; avatar: { publicId: string } | null }, file: Buffer) {
+    const avatar = await uploadImage(file, 'avatar', me.userId);
 
-    const user = await userRepository.setAvatarById(userId, avatar);
+    const user = await userRepository.setAvatarById(me.id, avatar);
     if (!user) {
         // The account was deleted while the picture was uploading
         await deleteImage(avatar.publicId);
         throw new ApiError(404, 'User not found');
     }
+    // A new upload normally overwrites the previous picture in storage. One stored under a different
+    // name (from before public ids existed) would be left behind, so it is removed here.
+    if (me.avatar && me.avatar.publicId !== avatar.publicId) await deleteImage(me.avatar.publicId);
     return user;
 }
 
@@ -79,5 +83,5 @@ export async function changePassword(userId: string, currentPassword: string, ne
     // Whoever knew the old password is logged out everywhere. The person who just changed it gets a
     // fresh login in return, so they carry on where they are.
     await endAllSessions(userId);
-    return startSession(userId);
+    return startSession(user);
 }

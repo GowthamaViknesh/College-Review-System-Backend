@@ -10,7 +10,7 @@ beforeAll(connectTestDb);
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
-const UNKNOWN_ID = '64b7f0000000000000000000';
+const UNKNOWN_ID = 'Unknown0Unknown0';
 const newCollege = { name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu', description: 'Public state university' };
 const names = (res: request.Response) => res.body.data.colleges.map((c: { name: string }) => c.name);
 
@@ -36,7 +36,7 @@ describe('average rating and review count', () => {
         const list = await request(app).get('/api/v1/colleges');
         expect(list.body.data.colleges[0]).toMatchObject({ averageRating: null, reviewCount: 0 });
 
-        const one = await request(app).get(`/api/v1/colleges/${college.id}`);
+        const one = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
         expect(one.body.data.college).toMatchObject({ averageRating: null, reviewCount: 0 });
     });
 
@@ -44,7 +44,7 @@ describe('average rating and review count', () => {
         const college = await createCollege();
         await rateCollege(college.id, [5, 5, 4]); // 4.666... -> 4.7
 
-        const res = await request(app).get(`/api/v1/colleges/${college.id}`);
+        const res = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
         expect(res.body.data.college.averageRating).toBe(4.7);
     });
 
@@ -57,7 +57,7 @@ describe('average rating and review count', () => {
         const college = await createCollege();
         await rateCollege(college.id, ratings);
 
-        const res = await request(app).get(`/api/v1/colleges/${college.id}`);
+        const res = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
         expect(res.body.data.college.averageRating).toBe(expected);
     });
 
@@ -66,23 +66,23 @@ describe('average rating and review count', () => {
         const student = await createUser('student');
         const other = await createUser('student');
         const stats = async () => {
-            const { averageRating, reviewCount } = (await request(app).get(`/api/v1/colleges/${college.id}`)).body.data.college;
+            const { averageRating, reviewCount } = (await request(app).get(`/api/v1/colleges/${college.collegeId}`)).body.data.college;
             return { averageRating, reviewCount };
         };
 
         const created = await request(app)
             .post('/api/v1/reviews')
             .set('Authorization', student.auth)
-            .send({ college: college.id, rating: 2, comment: 'Not what I expected at all' });
+            .send({ college: college.collegeId, rating: 2, comment: 'Not what I expected at all' });
         expect(await stats()).toEqual({ averageRating: 2, reviewCount: 1 });
 
-        await request(app).post('/api/v1/reviews').set('Authorization', other.auth).send({ college: college.id, rating: 5, comment: 'Excellent in every way' });
+        await request(app).post('/api/v1/reviews').set('Authorization', other.auth).send({ college: college.collegeId, rating: 5, comment: 'Excellent in every way' });
         expect(await stats()).toEqual({ averageRating: 3.5, reviewCount: 2 });
 
-        await request(app).patch(`/api/v1/reviews/${created.body.data.review._id}`).set('Authorization', student.auth).send({ rating: 4 });
+        await request(app).patch(`/api/v1/reviews/${created.body.data.review.reviewId}`).set('Authorization', student.auth).send({ rating: 4 });
         expect(await stats()).toEqual({ averageRating: 4.5, reviewCount: 2 });
 
-        await request(app).delete(`/api/v1/reviews/${created.body.data.review._id}`).set('Authorization', student.auth);
+        await request(app).delete(`/api/v1/reviews/${created.body.data.review.reviewId}`).set('Authorization', student.auth);
         expect(await stats()).toEqual({ averageRating: 5, reviewCount: 1 });
     });
 
@@ -93,9 +93,9 @@ describe('average rating and review count', () => {
         await Review.create({ college: college.id, user: leaving.user.id, rating: 1, comment: 'Leaving a one star review' });
         await rateCollege(college.id, [5]);
 
-        await request(app).delete(`/api/v1/users/${leaving.user.id}`).set('Authorization', admin.auth);
+        await request(app).delete(`/api/v1/users/${leaving.user.userId}`).set('Authorization', admin.auth);
 
-        const res = await request(app).get(`/api/v1/colleges/${college.id}`);
+        const res = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
         expect(res.body.data.college).toMatchObject({ averageRating: 5, reviewCount: 1 });
     });
 });
@@ -161,7 +161,7 @@ describe('GET /api/v1/colleges/:id', () => {
     it('is public, and returns 404 for an unknown id and 400 for a malformed id', async () => {
         const college = await createCollege({ name: 'Anna University' });
 
-        const found = await request(app).get(`/api/v1/colleges/${college.id}`);
+        const found = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
         expect(found.status).toBe(200);
         expect(found.body.data.college.name).toBe('Anna University');
         expect(found.body.data.college).not.toHaveProperty('__v');
@@ -177,7 +177,7 @@ describe('POST /api/v1/colleges', () => {
         const res = await request(app).post('/api/v1/colleges').set('Authorization', actor.auth).send(newCollege);
 
         expect(res.status).toBe(201);
-        expect(res.body.data.college).toMatchObject({ ...newCollege, createdBy: actor.user.id, averageRating: null, reviewCount: 0 });
+        expect(res.body.data.college).toMatchObject({ ...newCollege, createdBy: actor.user.userId, averageRating: null, reviewCount: 0 });
     });
 
     it('forbids a student and rejects a request with no token', async () => {
@@ -213,7 +213,7 @@ describe('PATCH /api/v1/colleges/:id', () => {
         const college = await createCollege({ name: 'Old Name' });
         await rateCollege(college.id, [4]);
 
-        const res = await request(app).patch(`/api/v1/colleges/${college.id}`).set('Authorization', teacher.auth).send({ name: 'New Name', city: 'Madurai' });
+        const res = await request(app).patch(`/api/v1/colleges/${college.collegeId}`).set('Authorization', teacher.auth).send({ name: 'New Name', city: 'Madurai' });
 
         expect(res.status).toBe(200);
         expect(res.body.data.college).toMatchObject({ name: 'New Name', city: 'Madurai', state: 'Tamil Nadu', averageRating: 4, reviewCount: 1 });
@@ -223,7 +223,7 @@ describe('PATCH /api/v1/colleges/:id', () => {
         const teacher = await createUser('teacher');
         const college = await createCollege({ name: 'Anna University' });
         await createCollege({ name: 'PSG Tech' });
-        const patch = (body: object) => request(app).patch(`/api/v1/colleges/${college.id}`).set('Authorization', teacher.auth).send(body);
+        const patch = (body: object) => request(app).patch(`/api/v1/colleges/${college.collegeId}`).set('Authorization', teacher.auth).send(body);
 
         expect((await patch({ name: 'anna university', description: 'Updated' })).status).toBe(200);
         expect((await patch({ name: 'psg tech' })).status).toBe(409);
@@ -234,8 +234,8 @@ describe('PATCH /api/v1/colleges/:id', () => {
         const student = await createUser('student');
         const college = await createCollege();
 
-        expect((await request(app).patch(`/api/v1/colleges/${college.id}`).set('Authorization', student.auth).send({ city: 'X1' })).status).toBe(403);
-        expect((await request(app).patch(`/api/v1/colleges/${college.id}`).set('Authorization', teacher.auth).send({})).status).toBe(400);
+        expect((await request(app).patch(`/api/v1/colleges/${college.collegeId}`).set('Authorization', student.auth).send({ city: 'X1' })).status).toBe(403);
+        expect((await request(app).patch(`/api/v1/colleges/${college.collegeId}`).set('Authorization', teacher.auth).send({})).status).toBe(400);
         expect((await request(app).patch(`/api/v1/colleges/${UNKNOWN_ID}`).set('Authorization', teacher.auth).send({ city: 'Madurai' })).status).toBe(404);
     });
 });
@@ -248,7 +248,7 @@ describe('DELETE /api/v1/colleges/:id', () => {
         await rateCollege(college.id, [5, 4]);
         await rateCollege(other.id, [3]);
 
-        const res = await request(app).delete(`/api/v1/colleges/${college.id}`).set('Authorization', admin.auth);
+        const res = await request(app).delete(`/api/v1/colleges/${college.collegeId}`).set('Authorization', admin.auth);
 
         expect(res.status).toBe(204);
         expect(await College.findById(college.id)).toBeNull();
@@ -262,7 +262,7 @@ describe('DELETE /api/v1/colleges/:id', () => {
 
         for (const role of ['teacher', 'student']) {
             const { auth } = await createUser(role);
-            expect((await request(app).delete(`/api/v1/colleges/${college.id}`).set('Authorization', auth)).status).toBe(403);
+            expect((await request(app).delete(`/api/v1/colleges/${college.collegeId}`).set('Authorization', auth)).status).toBe(403);
         }
         expect((await request(app).delete(`/api/v1/colleges/${UNKNOWN_ID}`).set('Authorization', admin.auth)).status).toBe(404);
         expect(await College.findById(college.id)).not.toBeNull();

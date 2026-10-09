@@ -3,6 +3,8 @@ import type { Types } from 'mongoose';
 import type { StoredImage } from './user.interface';
 
 export interface ICollege {
+    // The id the API uses for this college. MongoDB's _id never leaves the server.
+    collegeId: string;
     name: string;
     city: string;
     state: string;
@@ -15,8 +17,10 @@ export interface ICollege {
 }
 
 // A college together with the figures calculated from its reviews
-export interface CollegeWithStats extends Omit<ICollege, 'image'> {
-    _id: Types.ObjectId;
+// A college as the API returns it: no _id, and the creator shown by their public id
+export interface CollegeWithStats extends Omit<ICollege, 'image' | 'createdBy'> {
+    // userId of whoever added the college; null if that account has since been deleted
+    createdBy: string | null;
     // Just the address: the storage id is of no use to a client
     image: string | null;
     // null when the college has no reviews yet (0 would look like a terrible score)

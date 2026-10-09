@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 
+import { generatePublicId } from '../common/utils/public-id';
 import { IUser, IUserMethods, StoredImage } from '../common/interfaces/user.interface';
 
 type UserModel = Model<IUser, {}, IUserMethods>;
@@ -8,6 +9,17 @@ export type UserDocument = HydratedDocument<IUser, IUserMethods>;
 
 const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     {
+        // The id the API uses for this record. Created with it, and never changed afterwards.
+        userId: {
+            type: String,
+            required: true,
+            unique: true,
+            // Records with no id yet are left out of the unique index instead of colliding on "missing"
+            sparse: true,
+            immutable: true,
+            trim: true,
+            default: () => generatePublicId(),
+        },
         username: {
             type: String,
             required: [true, 'Username is required'],
@@ -45,7 +57,7 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
         timestamps: true,
         toJSON: {
             transform: (_doc, ret) => {
-                const { password, __v, avatar, passwordChangedAt, ...user } = ret;
+                const { _id, password, __v, avatar, passwordChangedAt, ...user } = ret;
                 // Clients get the picture's address only, never the id it is stored under
                 return { ...user, avatar: avatar?.url ?? null };
             },

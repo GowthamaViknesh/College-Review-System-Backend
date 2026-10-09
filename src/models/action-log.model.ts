@@ -1,6 +1,7 @@
 import { Schema, model } from 'mongoose';
 
 import { env } from '../common/config/env';
+import { generatePublicId } from '../common/utils/public-id';
 import { IActionLog } from '../common/interfaces/action-log.interface';
 import { ALL_ACTIONS, OUTCOMES, TARGET_TYPES } from '../common/constants/actions';
 
@@ -8,8 +9,20 @@ import { ALL_ACTIONS, OUTCOMES, TARGET_TYPES } from '../common/constants/actions
 // Entries are only ever added: there is no code path that edits or deletes one.
 const actionLogSchema = new Schema<IActionLog>(
     {
+        // The id the API uses for this record. Created with it, and never changed afterwards.
+        logId: {
+            type: String,
+            required: true,
+            unique: true,
+            // Records with no id yet are left out of the unique index instead of colliding on "missing"
+            sparse: true,
+            immutable: true,
+            trim: true,
+            default: () => generatePublicId(),
+        },
         actor: {
-            id: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+            // The user's public id, kept as plain text: the entry must outlive the account it refers to
+            id: { type: String, default: null },
             username: { type: String, default: null },
         },
         action: { type: String, enum: ALL_ACTIONS, required: true },
@@ -30,7 +43,7 @@ const actionLogSchema = new Schema<IActionLog>(
         minimize: false,
         toJSON: {
             transform: (_doc, ret) => {
-                const { __v, ...entry } = ret;
+                const { _id, __v, ...entry } = ret;
                 return entry;
             },
         },

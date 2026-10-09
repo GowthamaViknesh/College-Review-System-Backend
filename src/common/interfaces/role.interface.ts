@@ -1,6 +1,8 @@
 import type { PermissionName } from '../constants/permissions';
 
 export interface IRole {
+    // The id the API uses for this role. MongoDB's _id never leaves the server.
+    roleId: string;
     name: string;
     description: string;
     // Names of the permissions this role grants, e.g. ["review:create"]

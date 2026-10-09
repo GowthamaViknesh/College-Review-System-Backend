@@ -17,7 +17,7 @@ export const createCollege: RequestHandler = async (req, res) => {
     setAudit(res, { details: { name: req.body.name } });
 
     const college = await collegeService.createCollege(req.user!.id, req.body);
-    setAudit(res, { targetId: String(college._id) });
+    setAudit(res, { targetId: college.collegeId });
     res.status(201).json({ success: true, data: { college } });
 };
 

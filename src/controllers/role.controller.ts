@@ -21,7 +21,7 @@ export const createRole: RequestHandler = async (req, res) => {
     setAudit(res, { details: { name: req.body.name, permissions: req.body.permissions } });
 
     const role = await roleService.createRole(req.body);
-    setAudit(res, { targetId: role.id });
+    setAudit(res, { targetId: role.roleId });
     res.status(201).json({ success: true, data: { role } });
 };
 

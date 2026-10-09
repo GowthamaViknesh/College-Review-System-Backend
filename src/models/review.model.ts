@@ -1,11 +1,23 @@
 import { Schema, model, type HydratedDocument } from 'mongoose';
 
+import { generatePublicId } from '../common/utils/public-id';
 import { IReview } from '../common/interfaces/review.interface';
 
 export type ReviewDocument = HydratedDocument<IReview>;
 
 const reviewSchema = new Schema<IReview>(
     {
+        // The id the API uses for this record. Created with it, and never changed afterwards.
+        reviewId: {
+            type: String,
+            required: true,
+            unique: true,
+            // Records with no id yet are left out of the unique index instead of colliding on "missing"
+            sparse: true,
+            immutable: true,
+            trim: true,
+            default: () => generatePublicId(),
+        },
         college: {
             type: Schema.Types.ObjectId,
             ref: 'College',
@@ -34,7 +46,7 @@ const reviewSchema = new Schema<IReview>(
         timestamps: true,
         toJSON: {
             transform: (_doc, ret) => {
-                const { __v, ...review } = ret;
+                const { _id, __v, ...review } = ret;
                 return review;
             },
         },

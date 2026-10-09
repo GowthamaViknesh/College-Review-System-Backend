@@ -88,7 +88,7 @@ describe('PATCH /api/v1/auth/me', () => {
 
         await flushActionLogs();
         const entry = await ActionLog.findOne({ action: 'profile:update' }).lean();
-        expect(entry).toMatchObject({ outcome: 'success', target: { type: 'user', id: me.user.id }, details: { changed: ['username'] } });
+        expect(entry).toMatchObject({ outcome: 'success', target: { type: 'user', id: me.user.userId }, details: { changed: ['username'] } });
     });
 });
 

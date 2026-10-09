@@ -119,7 +119,7 @@ describe('GET /api/v1/auth/me', () => {
 
     it('rejects an expired token', async () => {
         const { user } = await createUser();
-        const expired = jwt.sign({ sub: user.id }, process.env.JWT_SECRET!, { expiresIn: -10 });
+        const expired = jwt.sign({ sub: user.userId }, process.env.JWT_SECRET!, { expiresIn: -10 });
         const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${expired}`);
         expect(res.status).toBe(401);
         expect(res.body.message).toBe('Token expired');

@@ -69,12 +69,12 @@ describe('POST /api/v1/auth/refresh', () => {
         expect(res.status).toBe(200);
         expect(Object.keys(res.body.data).sort()).toEqual(['refreshToken', 'token']);
         expect(res.body.data.refreshToken).not.toBe(session.refreshToken);
-        expect((await me(res.body.data.token)).body.data.user._id).toBe(session.user.id);
+        expect((await me(res.body.data.token)).body.data.user.userId).toBe(session.user.userId);
     });
 
     it('needs no access token, so it works after the access token has expired', async () => {
         const session = await loggedIn();
-        const expired = jwt.sign({ sub: session.user.id }, process.env.JWT_SECRET!, { expiresIn: -10 });
+        const expired = jwt.sign({ sub: session.user.userId }, process.env.JWT_SECRET!, { expiresIn: -10 });
         expect((await me(expired)).status).toBe(401);
 
         const res = await refresh(session.refreshToken);
@@ -157,7 +157,7 @@ describe('POST /api/v1/auth/refresh', () => {
     it('refuses once the account has been deleted', async () => {
         const admin = await createUser('admin');
         const session = await loggedIn();
-        await request(app).delete(`/api/v1/users/${session.user.id}`).set('Authorization', admin.auth);
+        await request(app).delete(`/api/v1/users/${session.user.userId}`).set('Authorization', admin.auth);
 
         expect((await refresh(session.refreshToken)).status).toBe(401);
         expect(await RefreshToken.countDocuments({ user: session.user.id })).toBe(0);
@@ -166,7 +166,7 @@ describe('POST /api/v1/auth/refresh', () => {
     it('picks up a role change: the new access token carries no stale permissions', async () => {
         const admin = await createUser('admin');
         const session = await loggedIn('student');
-        await request(app).patch(`/api/v1/users/${session.user.id}/role`).set('Authorization', admin.auth).send({ role: 'teacher' });
+        await request(app).patch(`/api/v1/users/${session.user.userId}/role`).set('Authorization', admin.auth).send({ role: 'teacher' });
 
         const res = await refresh(session.refreshToken);
         expect((await me(res.body.data.token)).body.data.permissions).toContain('college:create');
@@ -217,7 +217,7 @@ describe('logging out and the action log', () => {
 
         const entries = await ActionLog.find({ action: 'auth:logout' }).lean();
         expect(entries).toHaveLength(1);
-        expect(entries[0]).toMatchObject({ outcome: 'success', statusCode: 204, actor: { username: session.user.username }, target: { type: 'user', id: session.user.id } });
+        expect(entries[0]).toMatchObject({ outcome: 'success', statusCode: 204, actor: { username: session.user.username }, target: { type: 'user', id: session.user.userId } });
         expect(JSON.stringify(entries[0])).not.toContain(session.refreshToken);
     });
 
@@ -260,7 +260,7 @@ describe('changing the password', () => {
     it('refuses access tokens issued before the change, without waiting for them to expire', async () => {
         const session = await loggedIn();
         // An access token from a minute ago, still far from expiring
-        const older = jwt.sign({ sub: session.user.id, iat: Math.floor(Date.now() / 1000) - 60 }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+        const older = jwt.sign({ sub: session.user.userId, iat: Math.floor(Date.now() / 1000) - 60 }, process.env.JWT_SECRET!, { expiresIn: '1h' });
         expect((await me(older)).status).toBe(200);
 
         const changed = await change(session.token);

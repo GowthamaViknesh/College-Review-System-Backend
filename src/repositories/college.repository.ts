@@ -1,6 +1,7 @@
-import { Types, type PipelineStage } from 'mongoose';
+import type { PipelineStage } from 'mongoose';
 
 import { College } from '../models/college.model';
+import { User } from '../models/user.model';
 import { Review } from '../models/review.model';
 import { escapeRegex } from '../common/utils/utils';
 import { StoredImage } from '../common/interfaces/user.interface';
@@ -33,6 +34,15 @@ const WITH_REVIEW_STATS: PipelineStage[] = [
         },
     },
     { $project: { stats: 0, __v: 0 } },
+];
+
+// The last step before a college leaves the database: MongoDB's ids are swapped for public ones.
+// createdBy becomes the creator's userId (null if that account is gone) and _id is dropped.
+// It comes after sorting, which uses _id to keep the order stable.
+const AS_PUBLIC: PipelineStage.FacetPipelineStage[] = [
+    { $lookup: { from: User.collection.name, localField: 'createdBy', foreignField: '_id', pipeline: [{ $project: { _id: 0, userId: 1 } }], as: 'creator' } },
+    { $addFields: { createdBy: { $ifNull: [{ $first: '$creator.userId' }, null] } } },
+    { $project: { _id: 0, creator: 0 } },
 ];
 
 // The fields each sort uses, most important first, in the sort's natural direction:
@@ -89,27 +99,26 @@ export async function findPageWithStats(filter: CollegeFilter, { sort, order }: 
         { $sort: buildSort(sort, order) },
         { $unset: 'unrated' },
         // One round trip returns both the requested page and the total number of matches
-        { $facet: { colleges: [{ $skip: skips }, { $limit: pageSize }], total: [{ $count: 'count' }] } },
+        { $facet: { colleges: [{ $skip: skips }, { $limit: pageSize }, ...AS_PUBLIC], total: [{ $count: 'count' }] } },
     ]);
 
     return { colleges: result.colleges, total: result.total[0]?.count ?? 0 };
 }
 
-export async function findByIdWithStats(id: string): Promise<CollegeWithStats | null> {
-    const [college] = await College.aggregate<CollegeWithStats>([{ $match: { _id: new Types.ObjectId(id) } }, ...WITH_REVIEW_STATS]);
+// collegeId is the college's public id, the one that arrives in a URL
+
+export async function findByCollegeIdWithStats(collegeId: string): Promise<CollegeWithStats | null> {
+    const [college] = await College.aggregate<CollegeWithStats>([{ $match: { collegeId } }, ...WITH_REVIEW_STATS, ...AS_PUBLIC]);
     return college ?? null;
 }
 
-export function findById(id: string) {
-    return College.findById(id);
+export function findByCollegeId(collegeId: string) {
+    return College.findOne({ collegeId });
 }
 
-export function setImageById(id: string, image: StoredImage | null) {
-    return College.findByIdAndUpdate(id, { image });
-}
-
-export function existsById(id: string) {
-    return College.exists({ _id: id });
+// Returns the college as it was before the change, so the caller can see the picture it had
+export function setImageByCollegeId(collegeId: string, image: StoredImage | null) {
+    return College.findOneAndUpdate({ collegeId }, { image });
 }
 
 export function findByName(name: string) {
@@ -120,10 +129,10 @@ export function create(input: CollegeInput, createdBy: string) {
     return College.create({ ...input, createdBy });
 }
 
-export function updateById(id: string, fields: Partial<CollegeInput>) {
-    return College.findByIdAndUpdate(id, fields, { returnDocument: 'after', runValidators: true });
+export function updateByCollegeId(collegeId: string, fields: Partial<CollegeInput>) {
+    return College.findOneAndUpdate({ collegeId }, fields, { returnDocument: 'after', runValidators: true });
 }
 
-export function deleteById(id: string) {
-    return College.findByIdAndDelete(id);
+export function deleteByCollegeId(collegeId: string) {
+    return College.findOneAndDelete({ collegeId });
 }

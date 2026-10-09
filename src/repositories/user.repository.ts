@@ -6,11 +6,11 @@ import { IRole } from '../common/interfaces/role.interface';
 import { CreateUserInput, StoredImage, UpdateProfileInput, UserFilter } from '../common/interfaces/user.interface';
 
 // In API responses a user's role is shown as { _id, name } instead of a bare id
-const ROLE_NAME = { path: 'role', select: 'name' };
+const ROLE_NAME = { path: 'role', select: 'roleId name' };
 
 // For permission checks: the user's role together with the permissions it grants
-type WithAccess = { role: (Pick<IRole, 'name' | 'permissions'> & { _id: Types.ObjectId }) | null };
-const ROLE_WITH_PERMISSIONS = { path: 'role', select: 'name permissions' };
+type WithAccess = { role: (Pick<IRole, 'roleId' | 'name' | 'permissions'> & { _id: Types.ObjectId }) | null };
+const ROLE_WITH_PERMISSIONS = { path: 'role', select: 'roleId name permissions' };
 
 function buildFilter({ role, search }: UserFilter) {
     const filter: Record<string, unknown> = {};
@@ -41,13 +41,20 @@ export function countByRole(roleId: Types.ObjectId | string) {
     return User.countDocuments({ role: roleId });
 }
 
+// Functions named ...ByUserId take the public id, the one that arrives in a URL or a token.
+// Functions named ...ById take MongoDB's _id, which only the server's own code ever holds.
+
+export function findByUserId(userId: string) {
+    return User.findOne({ userId }).populate(ROLE_NAME);
+}
+
 export function findById(id: string) {
     return User.findById(id).populate(ROLE_NAME);
 }
 
 // Used on every authenticated request to work out what the caller is allowed to do
-export function findByIdWithAccess(id: string) {
-    return User.findById(id).populate<WithAccess>(ROLE_WITH_PERMISSIONS);
+export function findByUserIdWithAccess(userId: string) {
+    return User.findOne({ userId }).populate<WithAccess>(ROLE_WITH_PERMISSIONS);
 }
 
 export function findByEmailOrUsername(email: string, username: string) {
@@ -59,10 +66,6 @@ export function findOtherByEmailOrUsername(id: string, { email, username }: Upda
     const taken = [...(email ? [{ email }] : []), ...(username ? [{ username }] : [])];
     if (!taken.length) return null;
     return User.findOne({ _id: { $ne: id }, $or: taken });
-}
-
-export function existsById(id: string) {
-    return User.exists({ _id: id });
 }
 
 export function findByIdWithPassword(id: string) {
@@ -86,10 +89,10 @@ export async function create(input: CreateUserInput) {
     return user.populate(ROLE_NAME);
 }
 
-export function updateRoleById(id: string, roleId: Types.ObjectId) {
-    return User.findByIdAndUpdate(id, { role: roleId }, { returnDocument: 'after', runValidators: true }).populate(ROLE_NAME);
+export function updateRoleByUserId(userId: string, role: Types.ObjectId) {
+    return User.findOneAndUpdate({ userId }, { role }, { returnDocument: 'after', runValidators: true }).populate(ROLE_NAME);
 }
 
-export function deleteById(id: string) {
-    return User.findByIdAndDelete(id);
+export function deleteByUserId(userId: string) {
+    return User.findOneAndDelete({ userId });
 }

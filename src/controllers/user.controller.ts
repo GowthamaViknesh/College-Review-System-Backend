@@ -6,7 +6,7 @@ export const createUser: RequestHandler = async (req, res) => {
     setAudit(res, { details: { username: req.body.username, role: req.body.role } });
 
     const user = await userService.createUser(req.permissions!, req.body);
-    setAudit(res, { targetId: user.id });
+    setAudit(res, { targetId: user.userId });
     res.status(201).json({ success: true, data: { user } });
 };
 
@@ -24,11 +24,11 @@ export const getUser: RequestHandler<{ id: string }> = async (req, res) => {
 export const updateUserRole: RequestHandler<{ id: string }> = async (req, res) => {
     setAudit(res, { details: { role: req.body.role } });
 
-    const user = await userService.updateUserRole(req.user!.id, req.params.id, req.body.role);
+    const user = await userService.updateUserRole(req.user!.userId, req.params.id, req.body.role);
     res.json({ success: true, data: { user } });
 };
 
 export const deleteUser: RequestHandler<{ id: string }> = async (req, res) => {
-    await userService.deleteUser(req.user!.id, req.params.id);
+    await userService.deleteUser(req.user!.userId, req.params.id);
     res.status(204).send();
 };

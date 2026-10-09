@@ -6,6 +6,7 @@ import type { ActionName, Outcome, TargetType } from '../constants/actions';
 // Facts about the action that only the controller knows, attached with setAudit()
 interface AuditContext {
     // Set by register and login, where there is no logged-in user until the request has succeeded
+    // id is the user's public id (userId)
     actor?: { id: string; username: string };
     // Set when the action created something, so its id is not in the URL
     targetId?: string;
@@ -42,7 +43,7 @@ export const audit =
 
             const context: AuditContext = res.locals.audit ?? {};
             if (context.skip) return;
-            const actor = context.actor ?? (req.user ? { id: req.user.id, username: req.user.username } : null);
+            const actor = context.actor ?? (req.user ? { id: req.user.userId, username: req.user.username } : null);
 
             recordAction({
                 actor: { id: actor?.id ?? null, username: actor?.username ?? null },

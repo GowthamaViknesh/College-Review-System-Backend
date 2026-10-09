@@ -26,6 +26,7 @@ export function validationError(field: string, message: string): ApiError {
 // The token only identifies the user. Role and permissions are read from the database on each
 // request, so a role change takes effect immediately instead of when the token expires.
 export interface TokenPayload {
+    // The user's public id (userId)
     sub: string;
     // When the token was issued, in seconds. Added by the signing library.
     iat?: number;

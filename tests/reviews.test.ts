@@ -9,7 +9,7 @@ beforeAll(connectTestDb);
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
-const UNKNOWN_ID = '64b7f0000000000000000000';
+const UNKNOWN_ID = 'Unknown0Unknown0';
 const comment = 'Good faculty and placements, but the hostel needs work.';
 const ratings = (res: request.Response) => res.body.data.reviews.map((r: { rating: number }) => r.rating);
 
@@ -22,14 +22,14 @@ describe('POST /api/v1/reviews', () => {
         const student = await createUser('student');
         const college = await createCollege({ name: 'Anna University' });
 
-        const res = await postReview(student.auth, { college: college.id, rating: 4, comment });
+        const res = await postReview(student.auth, { college: college.collegeId, rating: 4, comment });
 
         expect(res.status).toBe(201);
         expect(res.body.data.review).toMatchObject({
             rating: 4,
             comment,
-            user: { _id: student.user.id, username: student.user.username },
-            college: { _id: college.id, name: 'Anna University' },
+            user: { userId: student.user.userId, username: student.user.username },
+            college: { collegeId: college.collegeId, name: 'Anna University' },
         });
     });
 
@@ -37,7 +37,7 @@ describe('POST /api/v1/reviews', () => {
         const teacher = await createUser('teacher');
         const college = await createCollege();
 
-        const res = await postReview(teacher.auth, { college: college.id, rating: 5, comment });
+        const res = await postReview(teacher.auth, { college: college.collegeId, rating: 5, comment });
 
         expect(res.status).toBe(403);
         expect(await Review.countDocuments()).toBe(0);
@@ -45,7 +45,7 @@ describe('POST /api/v1/reviews', () => {
 
     it('rejects a request with no token', async () => {
         const college = await createCollege();
-        const res = await request(app).post('/api/v1/reviews').send({ college: college.id, rating: 5, comment });
+        const res = await request(app).post('/api/v1/reviews').send({ college: college.collegeId, rating: 5, comment });
         expect(res.status).toBe(401);
     });
 
@@ -53,14 +53,14 @@ describe('POST /api/v1/reviews', () => {
         const student = await createUser('student');
         const college = await createCollege();
         const another = await createCollege();
-        await postReview(student.auth, { college: college.id, rating: 5, comment });
+        await postReview(student.auth, { college: college.collegeId, rating: 5, comment });
 
-        const second = await postReview(student.auth, { college: college.id, rating: 5, comment });
+        const second = await postReview(student.auth, { college: college.collegeId, rating: 5, comment });
         expect(second.status).toBe(409);
         expect(await Review.countDocuments({ college: college.id })).toBe(1);
 
         // The same student may still review a different college
-        expect((await postReview(student.auth, { college: another.id, rating: 3, comment })).status).toBe(201);
+        expect((await postReview(student.auth, { college: another.collegeId, rating: 3, comment })).status).toBe(201);
     });
 
     it('enforces one review per student per college in the database itself', async () => {
@@ -75,7 +75,7 @@ describe('POST /api/v1/reviews', () => {
     it('lets only one of two simultaneous reviews through', async () => {
         const student = await createUser('student');
         const college = await createCollege();
-        const body = { college: college.id, rating: 5, comment };
+        const body = { college: college.collegeId, rating: 5, comment };
 
         const results = await Promise.all([postReview(student.auth, body), postReview(student.auth, body)]);
 
@@ -93,7 +93,7 @@ describe('POST /api/v1/reviews', () => {
     it.each([0, 6, 3.5, 'five'])('rejects a rating of %p', async (rating) => {
         const student = await createUser('student');
         const college = await createCollege();
-        const res = await postReview(student.auth, { college: college.id, rating, comment });
+        const res = await postReview(student.auth, { college: college.collegeId, rating, comment });
         expect(res.status).toBe(400);
         expect(res.body.errors[0].field).toBe('rating');
     });
@@ -110,10 +110,10 @@ describe('POST /api/v1/reviews', () => {
         const victim = await createUser('student');
         const college = await createCollege();
 
-        const res = await postReview(student.auth, { college: college.id, rating: 1, comment, user: victim.user.id });
+        const res = await postReview(student.auth, { college: college.collegeId, rating: 1, comment, user: victim.user.userId });
 
         expect(res.status).toBe(201);
-        expect(res.body.data.review.user._id).toBe(student.user.id);
+        expect(res.body.data.review.user.userId).toBe(student.user.userId);
     });
 });
 
@@ -138,10 +138,10 @@ describe('GET /api/v1/reviews', () => {
         await rateCollege(a.id, [1]);
         await rateCollege(b.id, [3]);
 
-        const byCollege = await request(app).get(`/api/v1/reviews?college=${a.id}&sort=highest`);
+        const byCollege = await request(app).get(`/api/v1/reviews?college=${a.collegeId}&sort=highest`);
         expect(ratings(byCollege)).toEqual([5, 1]);
 
-        const byUser = await request(app).get(`/api/v1/reviews?user=${student.user.id}`);
+        const byUser = await request(app).get(`/api/v1/reviews?user=${student.user.userId}`);
         expect(ratings(byUser)).toEqual([5]);
     });
 
@@ -175,9 +175,9 @@ describe('GET /api/v1/reviews/:id', () => {
     it('is public, and returns 404 for an unknown id', async () => {
         const student = await createUser('student');
         const college = await createCollege();
-        const created = await postReview(student.auth, { college: college.id, rating: 4, comment });
+        const created = await postReview(student.auth, { college: college.collegeId, rating: 4, comment });
 
-        const found = await request(app).get(`/api/v1/reviews/${created.body.data.review._id}`);
+        const found = await request(app).get(`/api/v1/reviews/${created.body.data.review.reviewId}`);
         expect(found.status).toBe(200);
         expect(found.body.data.review.comment).toBe(comment);
 
@@ -189,8 +189,8 @@ describe('PATCH /api/v1/reviews/:id', () => {
     async function setup() {
         const owner = await createUser('student');
         const college = await createCollege();
-        const created = await postReview(owner.auth, { college: college.id, rating: 2, comment });
-        return { owner, college, id: created.body.data.review._id as string };
+        const created = await postReview(owner.auth, { college: college.collegeId, rating: 2, comment });
+        return { owner, college, id: created.body.data.review.reviewId as string };
     }
 
     it('lets the author change the rating and comment', async () => {
@@ -210,7 +210,7 @@ describe('PATCH /api/v1/reviews/:id', () => {
             const res = await request(app).patch(`/api/v1/reviews/${id}`).set('Authorization', auth).send({ rating: 5 });
             expect(res.status).toBe(403);
         }
-        expect((await Review.findById(id))!.rating).toBe(2);
+        expect((await Review.findOne({ reviewId: id }))!.rating).toBe(2);
     });
 
     it('cannot move a review to another college or another author', async () => {
@@ -218,9 +218,9 @@ describe('PATCH /api/v1/reviews/:id', () => {
         const other = await createCollege();
         const someone = await createUser('student');
 
-        await request(app).patch(`/api/v1/reviews/${id}`).set('Authorization', owner.auth).send({ rating: 3, college: other.id, user: someone.user.id });
+        await request(app).patch(`/api/v1/reviews/${id}`).set('Authorization', owner.auth).send({ rating: 3, college: other.collegeId, user: someone.user.userId });
 
-        const review = await Review.findById(id);
+        const review = await Review.findOne({ reviewId: id });
         expect(review!.college.toString()).toBe(college.id);
         expect(review!.user.toString()).toBe(owner.user.id);
     });
@@ -240,15 +240,15 @@ describe('DELETE /api/v1/reviews/:id', () => {
     async function setup() {
         const owner = await createUser('student');
         const college = await createCollege();
-        const created = await postReview(owner.auth, { college: college.id, rating: 2, comment });
-        return { owner, id: created.body.data.review._id as string };
+        const created = await postReview(owner.auth, { college: college.collegeId, rating: 2, comment });
+        return { owner, id: created.body.data.review.reviewId as string };
     }
 
     it('lets the author delete their own review', async () => {
         const { owner, id } = await setup();
         const res = await request(app).delete(`/api/v1/reviews/${id}`).set('Authorization', owner.auth);
         expect(res.status).toBe(204);
-        expect(await Review.findById(id)).toBeNull();
+        expect(await Review.findOne({ reviewId: id })).toBeNull();
     });
 
     it('lets an admin remove any review (moderation)', async () => {
@@ -265,7 +265,7 @@ describe('DELETE /api/v1/reviews/:id', () => {
             const { auth } = await createUser(role);
             expect((await request(app).delete(`/api/v1/reviews/${id}`).set('Authorization', auth)).status).toBe(403);
         }
-        expect(await Review.findById(id)).not.toBeNull();
+        expect(await Review.findOne({ reviewId: id })).not.toBeNull();
     });
 
     it('rejects a missing token and returns 404 for an unknown id', async () => {

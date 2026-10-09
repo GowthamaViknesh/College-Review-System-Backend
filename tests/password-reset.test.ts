@@ -24,7 +24,14 @@ afterEach(async () => {
 afterAll(closeTestDb);
 
 const forgot = (email: unknown) => request(app).post('/api/v1/auth/forgot-password').send({ email });
-const reset = (email: string, code: string, newPassword: unknown = 'brand-new-password') => request(app).post('/api/v1/auth/reset-password').send({ email, code, newPassword });
+const verify = (email: string, code: string) => request(app).post('/api/v1/auth/verify-reset-code').send({ email, code });
+const setPassword = (resetToken: unknown, newPassword: unknown = 'brand-new-password') => request(app).post('/api/v1/auth/reset-password').send({ resetToken, newPassword });
+// Both steps, the way the screens do them: enter the code, then choose the password.
+// If the code is refused, that refusal is the result.
+async function reset(email: string, code: string, newPassword: unknown = 'brand-new-password') {
+    const checked = await verify(email, code);
+    return checked.status === 200 ? setPassword(checked.body.data.resetToken, newPassword) : checked;
+}
 const login = (email: string, password: string) => request(app).post('/api/v1/auth/login').send({ email, password });
 
 const INVALID = 'That code is wrong or has expired. Check it, or ask for a new one.';
@@ -239,17 +246,15 @@ describe('POST /api/v1/auth/reset-password', () => {
         expect(me.body.message).toBe('Your password was changed. Please log in again.');
     });
 
-    it('validates the body before looking anything up', async () => {
+    it('validates the code before looking anything up', async () => {
         const { user } = await createUser('student');
         const code = await requestCode(user.email);
 
-        expect((await reset(user.email, '12345')).status).toBe(400);
-        expect((await reset(user.email, 'abcdef')).status).toBe(400);
-        expect((await reset(user.email, code, 'short')).status).toBe(400);
-        expect((await reset(user.email, code, null)).status).toBe(400);
+        expect((await verify(user.email, '12345')).status).toBe(400);
+        expect((await verify(user.email, 'abcdef')).status).toBe(400);
         // None of those counted as a try
         expect((await PasswordReset.findOne())!.attempts).toBe(0);
-        expect((await reset(user.email, code)).status).toBe(204);
+        expect((await verify(user.email, code)).status).toBe(200);
     });
 
     it('removes the pending code when the account is deleted', async () => {
@@ -257,8 +262,102 @@ describe('POST /api/v1/auth/reset-password', () => {
         const { user } = await createUser('student');
         await requestCode(user.email);
 
-        await request(app).delete(`/api/v1/users/${user.id}`).set('Authorization', admin.auth);
+        await request(app).delete(`/api/v1/users/${user.userId}`).set('Authorization', admin.auth);
         expect(await PasswordReset.countDocuments()).toBe(0);
+    });
+});
+
+describe('the step between the code and the new password', () => {
+    const tokenError = (res: request.Response) => res.body.errors?.find((e: { field: string }) => e.field === 'resetToken')?.message;
+    const EXPIRED = 'This password reset has expired or was already used. Ask for a new code.';
+
+    async function verified() {
+        const { user } = await createUser('student');
+        const res = await verify(user.email, await requestCode(user.email));
+        return { user, resetToken: res.body.data.resetToken as string, res };
+    }
+
+    it('entering the right code returns a reset token and leaves the password alone', async () => {
+        const { user, res } = await verified();
+
+        expect(res.status).toBe(200);
+        expect(res.body.data).toEqual({ resetToken: expect.stringMatching(/^[\w-]{43}$/), expiresInMinutes: 10 });
+        expect((await login(user.email, 'password123')).status).toBe(200);
+    });
+
+    it('stores only a hash of the reset token, and gives it 10 minutes', async () => {
+        const { resetToken } = await verified();
+        const [stored] = await PasswordReset.find().lean();
+
+        expect(JSON.stringify(stored)).not.toContain(resetToken);
+        expect(stored.resetTokenHash).toMatch(/^[0-9a-f]{64}$/);
+        const minutes = (stored.expiresAt.getTime() - Date.now()) / 60_000;
+        expect(minutes).toBeGreaterThan(9.9);
+        expect(minutes).toBeLessThanOrEqual(10);
+    });
+
+    it('the code cannot be entered a second time', async () => {
+        const { user } = await createUser('student');
+        const code = await requestCode(user.email);
+        await verify(user.email, code);
+
+        const again = await verify(user.email, code);
+        expect(again.status).toBe(400);
+        expect(codeError(again)).toBe(INVALID);
+    });
+
+    it('the reset token sets the password once', async () => {
+        const { user, resetToken } = await verified();
+
+        expect((await setPassword(resetToken)).status).toBe(204);
+        expect((await login(user.email, 'brand-new-password')).status).toBe(200);
+
+        const second = await setPassword(resetToken, 'another-new-password');
+        expect(second.status).toBe(400);
+        expect(tokenError(second)).toBe(EXPIRED);
+        expect((await login(user.email, 'brand-new-password')).status).toBe(200);
+    });
+
+    it('a rejected new password does not use up the reset token', async () => {
+        const { user, resetToken } = await verified();
+
+        expect((await setPassword(resetToken, 'short')).status).toBe(400);
+        expect((await setPassword(resetToken, null)).status).toBe(400);
+        expect((await setPassword(resetToken)).status).toBe(204);
+        expect((await login(user.email, 'brand-new-password')).status).toBe(200);
+    });
+
+    it('refuses an expired, made-up or missing reset token', async () => {
+        const { user, resetToken } = await verified();
+        await PasswordReset.updateMany({}, { expiresAt: new Date(Date.now() - 1000) });
+
+        for (const res of [await setPassword(resetToken), await setPassword('x'.repeat(43))]) {
+            expect(res.status).toBe(400);
+            expect(tokenError(res)).toBe(EXPIRED);
+        }
+        expect((await setPassword(undefined)).status).toBe(400);
+        expect((await login(user.email, 'password123')).status).toBe(200);
+    });
+
+    it('the code itself is not accepted in place of the reset token', async () => {
+        const { user } = await createUser('student');
+        const code = await requestCode(user.email);
+
+        const res = await setPassword(code);
+        expect(res.status).toBe(400);
+        const old = await request(app).post('/api/v1/auth/reset-password').send({ email: user.email, code, newPassword: 'brand-new-password' });
+        expect(old.status).toBe(400);
+        expect((await login(user.email, 'password123')).status).toBe(200);
+    });
+
+    it('asking for a new code cancels a reset token that was not used', async () => {
+        const { user, resetToken } = await verified();
+        await allowResend();
+        await requestCode(user.email);
+
+        const res = await setPassword(resetToken);
+        expect(res.status).toBe(400);
+        expect(tokenError(res)).toBe(EXPIRED);
     });
 });
 
@@ -273,7 +372,7 @@ describe('password reset and the action log', () => {
             .sort({ createdAt: 1 })
             .lean();
         expect(entries.map((e) => e.action).sort()).toEqual(['auth:password_reset', 'auth:password_reset_request']);
-        for (const entry of entries) expect(entry).toMatchObject({ outcome: 'success', actor: { username: user.username }, target: { type: 'user', id: user.id } });
+        for (const entry of entries) expect(entry).toMatchObject({ outcome: 'success', actor: { username: user.username }, target: { type: 'user', id: user.userId } });
         expect(JSON.stringify(entries)).not.toContain(code);
         expect(JSON.stringify(entries)).not.toContain('brand-new-password');
     });

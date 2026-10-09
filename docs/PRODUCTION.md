@@ -40,7 +40,8 @@ This API was built as a small production-style service. It is ready to run for a
 - Picture uploads that never touch the server's disk: files are type- and size-checked, resized and stored with Cloudinary, and removed when their owner is deleted.
 - Short-lived access tokens with single-use refresh tokens: reuse of a spent token ends that login, logging out and changing a password take effect on the server immediately, and only token hashes are stored.
 - Password reset by an emailed code that is short-lived, limited to five tries, usable once and stored only as a keyed hash, with answers that never reveal whether an address has an account.
-- 278 tests.
+- Random public ids on every record; MongoDB's own ids, which reveal creation time and ordering, never appear in a response, a URL or a token.
+- 299 tests.
 
 ## Known limitations
 

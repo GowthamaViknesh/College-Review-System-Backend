@@ -19,7 +19,7 @@ describe('picture uploads without image storage set up', () => {
         const college = await createCollege();
 
         const avatar = await request(app).put('/api/v1/auth/me/avatar').set('Authorization', teacher.auth).attach('image', PNG, png);
-        const image = await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
+        const image = await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
 
         for (const res of [avatar, image]) {
             expect(res.status).toBe(503);
@@ -32,7 +32,7 @@ describe('picture uploads without image storage set up', () => {
         const college = await createCollege();
 
         const me = await request(app).get('/api/v1/auth/me').set('Authorization', teacher.auth);
-        const one = await request(app).get(`/api/v1/colleges/${college.id}`);
+        const one = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
         const remove = await request(app).delete('/api/v1/auth/me/avatar').set('Authorization', teacher.auth);
 
         expect(me.body.data.user.avatar).toBeNull();

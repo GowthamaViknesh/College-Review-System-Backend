@@ -86,6 +86,7 @@ Things to know about the free plan: the service sleeps after 15 minutes without 
 | `npm run test:coverage` | Run all tests and report coverage |
 | `npm run seed` | Create the starter roles and the first admin. Safe to run again. |
 | `npm run seed:demo` | Add sample accounts, colleges and reviews. Safe to run again. |
+| `npm run migrate:ids` | One-off for a database used before public ids existed: rewrites the ids inside older action log entries. Safe to run again. |
 | `npm run format` / `npm run format:check` | Format the code with Biome, or only check it |
 
 ## Configuration
@@ -136,7 +137,8 @@ Every path is under `/api/v1`. Responses have one shape:
 | `POST /auth/refresh` | Public | Exchange a refresh token for a new access token and refresh token |
 | `POST /auth/logout` | Public | End the login a refresh token belongs to. Recorded in the action log as `auth:logout`. |
 | `POST /auth/forgot-password` | Public | Email a 6-digit reset code, if the address has an account |
-| `POST /auth/reset-password` | Public | Set a new password with `email`, `code` and `newPassword` |
+| `POST /auth/verify-reset-code` | Public | Check the emailed code (`email`, `code`). A correct one returns a one-time `resetToken`. |
+| `POST /auth/reset-password` | Public | Set a new password with `resetToken` and `newPassword` |
 | `GET /auth/me` | Logged in | The current user and the permissions their role grants |
 | `PATCH /auth/me` | Logged in | Change your own username or email |
 | `PATCH /auth/me/password` | Logged in | Change your own password (needs the current one). Ends every login and returns a new pair of tokens. |
@@ -220,6 +222,17 @@ Every change made through the API is recorded: who did it, what they did, to wha
 
 Entries cannot be edited or deleted through the API, never contain passwords or tokens, and are removed automatically after `ACTION_LOG_RETENTION_DAYS`.
 
+## Ids
+
+Every record has two ids.
+
+- **The public id** is what the API accepts and returns: `userId`, `roleId`, `collegeId`, `reviewId`, and `logId` on action log entries. It is 16 random letters and digits (made with `nanoid`), created with the record and never changed. Wherever a path says `:id`, or a body or query asks for a college or a user, this is the id to send.
+- **MongoDB's `_id`** never leaves the server. It is still what links records to each other inside the database (a review to its college and author, a user to their role), so joins and indexes work as usual.
+
+Why not expose `_id`: an ObjectId contains the time the record was created and a counter, so ids can be guessed from one another and reveal how much data there is and when it was added. A random id reveals nothing. The access token names the user by `userId` too.
+
+A database that was in use before public ids existed needs nothing done by hand: at every startup the server gives an id to any record that lacks one (`src/services/public-id.service.ts`). `npm run migrate:ids` additionally rewrites the old ids inside existing action log entries. Each model declares its own id field in its schema; the generator they all use as the default value is in `src/common/utils/public-id.ts`.
+
 ## Staying logged in
 
 Logging in returns two tokens.
@@ -239,13 +252,20 @@ The tokens are returned in the response body rather than set as a cookie. The fr
 
 ## Forgotten passwords
 
-`POST /auth/forgot-password` emails a 6-digit code; `POST /auth/reset-password` exchanges the code for a new password. Afterwards every existing login for the account is ended and the person logs in again.
+Three steps, one endpoint each:
+
+1. `POST /auth/forgot-password` emails a 6-digit code.
+2. `POST /auth/verify-reset-code` checks the code. A correct one stops working and is exchanged for a one-time `resetToken`, valid for 10 minutes. The password is not touched yet.
+3. `POST /auth/reset-password` sets the new password, given that token.
+
+Afterwards every existing login for the account is ended and the person logs in again. Checking the code on its own step means the password form is only shown to someone who has already proved they can read the inbox.
 
 Six digits is only a million possibilities, so the rest is there to make guessing pointless:
 
 - The code lasts **10 minutes**, can be **tried 5 times** (right or wrong) and **works once**.
 - Asking again **replaces** the previous code, at most **once a minute** per account. Both endpoints also share the login rate limit (20 per IP every 15 minutes).
 - Only a keyed hash of the code is stored (HMAC with the server's secret), so the database alone cannot be used to check guesses.
+- The reset token is 32 random bytes, stored only as a hash, works once, and is cancelled if a new code is requested.
 - **Nothing reveals who has an account.** Asking for a code gets the same answer for any address, and a wrong code, an expired code and an unknown address all get the same error.
 - The email is sent after the response, so a slow mail server does not give away which addresses are real. A failure to send is in the server log as `Password reset email could not be sent`.
 
@@ -277,7 +297,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 278 tests in 18 files
+npm test                 # 299 tests in 19 files
 npm run test:coverage
 ```
 

@@ -25,6 +25,7 @@ describe('API documentation', () => {
                 'POST /auth/refresh',
                 'POST /auth/logout',
                 'POST /auth/forgot-password',
+                'POST /auth/verify-reset-code',
                 'POST /auth/reset-password',
                 'GET /auth/me',
                 'PATCH /auth/me',
@@ -79,6 +80,7 @@ describe('API documentation', () => {
             'POST /auth/refresh',
             'POST /auth/register',
             'POST /auth/reset-password',
+            'POST /auth/verify-reset-code',
         ]);
     });
 });

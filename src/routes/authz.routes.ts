@@ -6,7 +6,7 @@ import { audit } from '../common/middlewares/audit.middleware';
 import { protect } from '../common/middlewares/auth.middleware';
 import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { validate } from '../common/middlewares/validate.middleware';
-import { forgotPasswordSchema, resetPasswordSchema } from '../common/validators/user.validator';
+import { forgotPasswordSchema, resetPasswordSchema, verifyResetCodeSchema } from '../common/validators/user.validator';
 import { changePasswordSchema, loginSchema, refreshTokenSchema, registerSchema, updateProfileSchema } from '../common/validators/user.validator';
 import * as authzController from '../controllers/authz.controller';
 
@@ -99,7 +99,7 @@ router.post('/login', audit(ACTIONS.AUTH_LOGIN, 'user'), authLimiter, validate({
  *     tags: [Auth]
  *     summary: Ask for a password reset code by email
  *     description: >
- *       Public. If the address belongs to an account, a 6-digit code is emailed to it. The code works for 10 minutes,
+ *       Public. The first step of resetting a forgotten password. If the address belongs to an account, a 6-digit code is emailed to it. The code works for 10 minutes,
  *       can be tried 5 times and used once. Asking again replaces the previous code, at most once a minute per account.
  *       The answer is the same whether or not the address has an account, so this cannot be used to find out who is registered.
  *     requestBody:
@@ -135,31 +135,41 @@ router.post('/forgot-password', audit(ACTIONS.AUTH_PASSWORD_RESET_REQUEST, 'user
 
 /**
  * @openapi
- * /auth/reset-password:
+ * /auth/verify-reset-code:
  *   post:
  *     tags: [Auth]
- *     summary: Set a new password using the emailed code
+ *     summary: Check the emailed code and get a reset token
  *     description: >
- *       Public. On success the password is changed, the code stops working, and every existing login for the account
- *       is ended on every device. Log in with the new password afterwards.
+ *       Public. The second step of resetting a forgotten password. If the code is right it stops working and a
+ *       one-time `resetToken` is returned, valid for 10 minutes, to send with the new password. The password
+ *       is not changed by this call. A wrong code, an expired code, a code with no tries left and an unknown
+ *       address all get the same answer.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, code, newPassword]
+ *             required: [email, code]
  *             properties:
  *               email: { type: string, format: email, example: admin@example.com }
  *               code: { type: string, pattern: '^\\d{6}$', example: '482913' }
- *               newPassword: { type: string, minLength: 8, maxLength: 72, example: NewPassword@456 }
  *     responses:
- *       204:
- *         description: Password changed
+ *       200:
+ *         description: The code was right
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     resetToken: { type: string, example: 'c2FtcGxlLXJlc2V0LXRva2VuLW5vdC1yZWFsLW9uZQ' }
+ *                     expiresInMinutes: { type: integer, example: 10 }
  *       400:
- *         description: >
- *           The body is invalid, or the code is wrong, expired, already used or out of attempts.
- *           These all get the same message.
+ *         description: The body is invalid, or the code is wrong, expired, already used or out of tries
  *         content:
  *           application/json:
  *             schema:
@@ -168,6 +178,44 @@ router.post('/forgot-password', audit(ACTIONS.AUTH_PASSWORD_RESET_REQUEST, 'user
  *               success: false
  *               message: Validation failed
  *               errors: [{ field: code, message: 'That code is wrong or has expired. Check it, or ask for a new one.' }]
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+router.post('/verify-reset-code', authLimiter, validate({ body: verifyResetCodeSchema }), authzController.verifyResetCode);
+
+/**
+ * @openapi
+ * /auth/reset-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Set a new password using the reset token
+ *     description: >
+ *       Public. The last step of resetting a forgotten password, using the token from `POST /auth/verify-reset-code`.
+ *       On success the password is changed, the token stops working, and every existing login for the account
+ *       is ended on every device. Log in with the new password afterwards.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [resetToken, newPassword]
+ *             properties:
+ *               resetToken: { type: string, example: 'c2FtcGxlLXJlc2V0LXRva2VuLW5vdC1yZWFsLW9uZQ' }
+ *               newPassword: { type: string, minLength: 8, maxLength: 72, example: NewPassword@456 }
+ *     responses:
+ *       204:
+ *         description: Password changed
+ *       400:
+ *         description: The body is invalid, or the reset token is unknown, expired or already used
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               success: false
+ *               message: Validation failed
+ *               errors: [{ field: resetToken, message: 'This password reset has expired or was already used. Ask for a new code.' }]
  *       429:
  *         $ref: '#/components/responses/TooManyRequests'
  */

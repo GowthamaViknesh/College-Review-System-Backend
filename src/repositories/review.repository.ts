@@ -4,8 +4,8 @@ import { ReviewFilter, ReviewSort, UpdateReviewInput } from '../common/interface
 
 // In API responses a review shows who wrote it and which college it is about, not just their ids
 const AUTHOR_AND_COLLEGE = [
-    { path: 'user', select: 'username avatar' },
-    { path: 'college', select: 'name' },
+    { path: 'user', select: 'userId username avatar' },
+    { path: 'college', select: 'collegeId name' },
 ];
 
 const SORTS: Record<ReviewSort, Record<string, 1 | -1>> = {
@@ -36,8 +36,9 @@ export function count(filter: ReviewFilter) {
     return Review.countDocuments(buildFilter(filter));
 }
 
-export function findById(id: string) {
-    return Review.findById(id).populate(AUTHOR_AND_COLLEGE);
+// reviewId is the review's public id, the one that arrives in a URL
+export function findByReviewId(reviewId: string) {
+    return Review.findOne({ reviewId }).populate(AUTHOR_AND_COLLEGE);
 }
 
 export function existsForCollegeAndUser(college: string, user: string) {
@@ -49,12 +50,12 @@ export async function create(fields: { college: string; user: string; rating: nu
     return review.populate(AUTHOR_AND_COLLEGE);
 }
 
-export function updateById(id: string, fields: UpdateReviewInput) {
-    return Review.findByIdAndUpdate(id, fields, { returnDocument: 'after', runValidators: true }).populate(AUTHOR_AND_COLLEGE);
+export function updateByReviewId(reviewId: string, fields: UpdateReviewInput) {
+    return Review.findOneAndUpdate({ reviewId }, fields, { returnDocument: 'after', runValidators: true }).populate(AUTHOR_AND_COLLEGE);
 }
 
-export function deleteById(id: string) {
-    return Review.findByIdAndDelete(id);
+export function deleteByReviewId(reviewId: string) {
+    return Review.findOneAndDelete({ reviewId });
 }
 
 export function deleteByCollege(college: string) {

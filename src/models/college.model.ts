@@ -1,5 +1,6 @@
 import { Schema, model, type HydratedDocument } from 'mongoose';
 
+import { generatePublicId } from '../common/utils/public-id';
 import { ICollege } from '../common/interfaces/college.interface';
 import { StoredImage } from '../common/interfaces/user.interface';
 
@@ -9,6 +10,17 @@ export type CollegeDocument = HydratedDocument<ICollege>;
 // whenever a college is read, so they can never be out of date.
 const collegeSchema = new Schema<ICollege>(
     {
+        // The id the API uses for this record. Created with it, and never changed afterwards.
+        collegeId: {
+            type: String,
+            required: true,
+            unique: true,
+            // Records with no id yet are left out of the unique index instead of colliding on "missing"
+            sparse: true,
+            immutable: true,
+            trim: true,
+            default: () => generatePublicId(),
+        },
         name: {
             type: String,
             required: [true, 'College name is required'],
@@ -44,7 +56,7 @@ const collegeSchema = new Schema<ICollege>(
         timestamps: true,
         toJSON: {
             transform: (_doc, ret) => {
-                const { __v, image, ...college } = ret;
+                const { _id, __v, image, ...college } = ret;
                 return { ...college, image: image?.url ?? null };
             },
         },

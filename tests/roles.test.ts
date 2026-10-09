@@ -10,8 +10,8 @@ beforeAll(connectTestDb);
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
-const UNKNOWN_ID = '64b7f0000000000000000000';
-const roleId = async (name: string) => (await Role.findOne({ name }))!.id as string;
+const UNKNOWN_ID = 'Unknown0Unknown0';
+const roleId = async (name: string) => (await Role.findOne({ name }))!.roleId;
 
 describe('access to roles and permissions', () => {
     it.each(['/api/v1/roles', '/api/v1/permissions'])('%s is not public', async (path) => {
@@ -65,7 +65,7 @@ describe('GET /api/v1/roles', () => {
         expect(byName.admin.permissions).toEqual([...ALL_PERMISSIONS].sort());
         expect(byName.teacher.permissions).toEqual(['college:create', 'college:update', 'user:create']);
         expect(byName.student.permissions).toEqual(['review:create']);
-        expect(Object.keys(byName.student).sort()).toEqual(['_id', 'createdAt', 'description', 'name', 'permissions', 'updatedAt']);
+        expect(Object.keys(byName.student).sort()).toEqual(['createdAt', 'description', 'name', 'permissions', 'roleId', 'updatedAt']);
     });
 
     it('returns one role by id, 404 for an unknown id and 400 for a malformed id', async () => {
@@ -107,7 +107,7 @@ describe('POST /api/v1/roles', () => {
         const auditor = await createUser('auditor');
 
         expect((await request(app).get('/api/v1/users').set('Authorization', auditor.auth)).status).toBe(200);
-        expect((await request(app).delete(`/api/v1/users/${admin.user.id}`).set('Authorization', auditor.auth)).status).toBe(403);
+        expect((await request(app).delete(`/api/v1/users/${admin.user.userId}`).set('Authorization', auditor.auth)).status).toBe(403);
         expect((await request(app).get('/api/v1/roles').set('Authorization', auditor.auth)).status).toBe(403);
     });
 
@@ -181,7 +181,7 @@ describe('PATCH /api/v1/roles/:id', () => {
     it('rejects a rename to a name already in use, an empty body and an unknown id', async () => {
         const admin = await createUser('admin');
         const created = await request(app).post('/api/v1/roles').set('Authorization', admin.auth).send({ name: 'moderator' });
-        const id = created.body.data.role._id;
+        const id = created.body.data.role.roleId;
 
         expect((await request(app).patch(`/api/v1/roles/${id}`).set('Authorization', admin.auth).send({ name: 'student' })).status).toBe(409);
         expect((await request(app).patch(`/api/v1/roles/${id}`).set('Authorization', admin.auth).send({})).status).toBe(400);

@@ -10,7 +10,17 @@ const PORT = env.port;
 async function start() {
     await connectDatabase();
 
-    const server = app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+    // Express hands a failure to listen (most often: the port is already taken) to this callback instead
+    // of throwing. Left unchecked, the process would stay alive saying it is running while every request
+    // goes to whatever else holds the port, such as an older copy of this server that was never stopped.
+    const server = app.listen(PORT, (err?: Error) => {
+        if (err) {
+            const inUse = (err as NodeJS.ErrnoException).code === 'EADDRINUSE';
+            logger.fatal({ err }, inUse ? `Port ${PORT} is already in use. Another copy of the server is probably still running; stop it first.` : 'Failed to start server');
+            process.exit(1);
+        }
+        logger.info(`Server running on port ${PORT}`);
+    });
 
     // Only on a host that gives the service a public address; off when running locally
     const stopKeepAlive = env.keepAlive ? startKeepAlive(env.keepAlive) : () => {};

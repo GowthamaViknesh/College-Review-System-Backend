@@ -1,13 +1,14 @@
-import type { Types } from 'mongoose';
 import type { ActionName, Outcome, TargetType } from '../constants/actions';
 
 export interface IActionLog {
+    logId: string;
     // Who did it. The username is copied in so the entry still reads correctly after the account is deleted.
     // Both are null when nobody was logged in, e.g. a failed login.
-    actor: { id: Types.ObjectId | null; username: string | null };
+    // The id is the user's public id (userId).
+    actor: { id: string | null; username: string | null };
     action: ActionName;
     outcome: Outcome;
-    // What it was done to. The id is null when nothing was created, e.g. a denied create.
+    // What it was done to, by its public id. The id is null when nothing was created, e.g. a denied create.
     target: { type: TargetType | null; id: string | null };
     // Small, action-specific facts such as { role: "teacher" }. Never passwords or tokens.
     details: Record<string, unknown>;
@@ -18,8 +19,8 @@ export interface IActionLog {
     createdAt: Date;
 }
 
-// What is handed in to be saved: the actor id is still a plain string at that point
-export type ActionLogEntry = Omit<IActionLog, 'createdAt' | 'actor'> & { actor: { id: string | null; username: string | null } };
+// What is handed in to be saved; the id and the time are added as it is stored
+export type ActionLogEntry = Omit<IActionLog, 'createdAt' | 'logId'>;
 
 export interface ActionLogFilter {
     actor?: string;

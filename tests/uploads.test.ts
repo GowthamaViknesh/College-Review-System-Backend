@@ -47,7 +47,7 @@ describe('PUT /api/v1/auth/me/avatar', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.data.user).toMatchObject({ username: me.user.username, role: { name: role } });
-            expect(res.body.data.user.avatar).toMatch(new RegExp(`^https://images\\.test/v\\d+/avatar/${me.user.id}\\.jpg$`));
+            expect(res.body.data.user.avatar).toMatch(new RegExp(`^https://images\\.test/v\\d+/avatar/${me.user.userId}\\.jpg$`));
         }
     });
 
@@ -61,10 +61,10 @@ describe('PUT /api/v1/auth/me/avatar', () => {
         const list = await request(app).get('/api/v1/users').set('Authorization', admin.auth);
 
         expect(profile.body.data.user.avatar).toBe(address);
-        expect(list.body.data.users.find((u: { _id: string }) => u._id === me.user.id).avatar).toBe(address);
+        expect(list.body.data.users.find((u: { userId: string }) => u.userId === me.user.userId).avatar).toBe(address);
         // The id the picture is stored under stays on the server
         expect(JSON.stringify([upload.body, profile.body, list.body])).not.toContain('publicId');
-        expect((await User.findById(me.user.id))!.avatar).toMatchObject({ url: address, publicId: `avatar/${me.user.id}` });
+        expect((await User.findById(me.user.id))!.avatar).toMatchObject({ url: address, publicId: `avatar/${me.user.userId}` });
     });
 
     it('is null for an account without a picture', async () => {
@@ -80,7 +80,7 @@ describe('PUT /api/v1/auth/me/avatar', () => {
 
         expect(second.body.data.user.avatar).not.toBe(first.body.data.user.avatar);
         // Both uploads went to the same slot, so the first picture was overwritten, not left behind
-        expect(uploadImage.mock.calls.map(([, kind, owner]) => `${kind}/${owner}`)).toEqual([`avatar/${me.user.id}`, `avatar/${me.user.id}`]);
+        expect(uploadImage.mock.calls.map(([, kind, owner]) => `${kind}/${owner}`)).toEqual([`avatar/${me.user.userId}`, `avatar/${me.user.userId}`]);
     });
 
     it('needs a login, and reads nothing from someone who is not logged in', async () => {
@@ -159,7 +159,7 @@ describe('PUT /api/v1/auth/me/avatar', () => {
 
         const entry = await ActionLog.findOne({ action: 'profile:update' });
         expect(entry).toMatchObject({ outcome: 'success', details: { changed: ['avatar'] } });
-        expect(String(entry!.target.id)).toBe(me.user.id);
+        expect(entry!.target.id).toBe(me.user.userId);
     });
 });
 
@@ -172,7 +172,7 @@ describe('DELETE /api/v1/auth/me/avatar', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.data.user.avatar).toBeNull();
-        expect(deleteImage).toHaveBeenCalledWith(`avatar/${me.user.id}`);
+        expect(deleteImage).toHaveBeenCalledWith(`avatar/${me.user.userId}`);
     });
 
     it('succeeds when there was no picture', async () => {
@@ -193,26 +193,26 @@ describe('PUT /api/v1/colleges/:id/image', () => {
     it('lets someone who may edit colleges set the picture', async () => {
         const teacher = await createUser('teacher');
         const college = await createCollege();
-        const res = await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
+        const res = await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
 
         expect(res.status).toBe(200);
         expect(res.body.data.college).toMatchObject({ name: college.name, averageRating: null, reviewCount: 0 });
-        expect(res.body.data.college.image).toMatch(new RegExp(`/college/${college.id}\\.jpg$`));
+        expect(res.body.data.college.image).toMatch(new RegExp(`/college/${college.collegeId}\\.jpg$`));
     });
 
     it('shows the picture in the list and on the college, as an address only', async () => {
         const teacher = await createUser('teacher');
         const withPicture = await createCollege();
         const without = await createCollege();
-        const upload = await request(app).put(`/api/v1/colleges/${withPicture.id}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
+        const upload = await request(app).put(`/api/v1/colleges/${withPicture.collegeId}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
         const address = upload.body.data.college.image;
 
         const list = await request(app).get('/api/v1/colleges');
-        const one = await request(app).get(`/api/v1/colleges/${withPicture.id}`);
-        const byId = Object.fromEntries(list.body.data.colleges.map((c: { _id: string; image: string | null }) => [c._id, c.image]));
+        const one = await request(app).get(`/api/v1/colleges/${withPicture.collegeId}`);
+        const byId = Object.fromEntries(list.body.data.colleges.map((c: { collegeId: string; image: string | null }) => [c.collegeId, c.image]));
 
-        expect(byId[withPicture.id]).toBe(address);
-        expect(byId[without.id]).toBeNull();
+        expect(byId[withPicture.collegeId]).toBe(address);
+        expect(byId[without.collegeId]).toBeNull();
         expect(one.body.data.college.image).toBe(address);
         expect(JSON.stringify([upload.body, list.body, one.body])).not.toContain('publicId');
     });
@@ -220,8 +220,8 @@ describe('PUT /api/v1/colleges/:id/image', () => {
     it('is refused without the college:update permission, before anything is uploaded', async () => {
         const student = await createUser('student');
         const college = await createCollege();
-        const res = await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', student.auth).attach('image', PNG, png);
-        const anonymous = await request(app).put(`/api/v1/colleges/${college.id}/image`).attach('image', PNG, png);
+        const res = await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', student.auth).attach('image', PNG, png);
+        const anonymous = await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).attach('image', PNG, png);
 
         expect(res.status).toBe(403);
         expect(anonymous.status).toBe(401);
@@ -230,7 +230,7 @@ describe('PUT /api/v1/colleges/:id/image', () => {
 
     it('uploads nothing for a college that does not exist', async () => {
         const teacher = await createUser('teacher');
-        const missing = await request(app).put('/api/v1/colleges/66f1a2b3c4d5e6f7a8b9c0d3/image').set('Authorization', teacher.auth).attach('image', PNG, png);
+        const missing = await request(app).put('/api/v1/colleges/Unknown0Unknown0/image').set('Authorization', teacher.auth).attach('image', PNG, png);
         const malformed = await request(app).put('/api/v1/colleges/not-an-id/image').set('Authorization', teacher.auth).attach('image', PNG, png);
 
         expect(missing.status).toBe(404);
@@ -241,7 +241,7 @@ describe('PUT /api/v1/colleges/:id/image', () => {
     it('applies the same file checks as profile pictures', async () => {
         const teacher = await createUser('teacher');
         const college = await createCollege();
-        const res = await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth).attach('image', Buffer.from('plain text'), png);
+        const res = await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth).attach('image', Buffer.from('plain text'), png);
 
         expect(res.status).toBe(400);
         expect(imageError(res)).toBe('Upload a JPG, PNG or WebP picture');
@@ -250,12 +250,12 @@ describe('PUT /api/v1/colleges/:id/image', () => {
     it('records the change in the action log', async () => {
         const teacher = await createUser('teacher');
         const college = await createCollege();
-        await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
+        await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
         await flushActionLogs();
 
         const entry = await ActionLog.findOne({ action: 'college:update' });
         expect(entry).toMatchObject({ outcome: 'success', details: { changed: ['image'] } });
-        expect(String(entry!.target.id)).toBe(college.id);
+        expect(entry!.target.id).toBe(college.collegeId);
     });
 });
 
@@ -263,13 +263,13 @@ describe('DELETE /api/v1/colleges/:id/image', () => {
     it('removes the picture from the college and from storage', async () => {
         const teacher = await createUser('teacher');
         const college = await createCollege();
-        await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
+        await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth).attach('image', PNG, png);
 
-        const res = await request(app).delete(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth);
+        const res = await request(app).delete(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth);
 
         expect(res.status).toBe(200);
         expect(res.body.data.college.image).toBeNull();
-        expect(deleteImage).toHaveBeenCalledWith(`college/${college.id}`);
+        expect(deleteImage).toHaveBeenCalledWith(`college/${college.collegeId}`);
     });
 
     it('succeeds when there was no picture, and is refused without permission', async () => {
@@ -277,9 +277,9 @@ describe('DELETE /api/v1/colleges/:id/image', () => {
         const student = await createUser('student');
         const college = await createCollege();
 
-        expect((await request(app).delete(`/api/v1/colleges/${college.id}/image`).set('Authorization', teacher.auth)).status).toBe(200);
-        expect((await request(app).delete(`/api/v1/colleges/${college.id}/image`).set('Authorization', student.auth)).status).toBe(403);
-        expect((await request(app).delete('/api/v1/colleges/66f1a2b3c4d5e6f7a8b9c0d3/image').set('Authorization', teacher.auth)).status).toBe(404);
+        expect((await request(app).delete(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', teacher.auth)).status).toBe(200);
+        expect((await request(app).delete(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', student.auth)).status).toBe(403);
+        expect((await request(app).delete('/api/v1/colleges/Unknown0Unknown0/image').set('Authorization', teacher.auth)).status).toBe(404);
         expect(deleteImage).not.toHaveBeenCalled();
     });
 });
@@ -288,12 +288,12 @@ describe('pictures of things that are deleted', () => {
     it('removes a college picture from storage when the college is deleted', async () => {
         const admin = await createUser('admin');
         const college = await createCollege();
-        await request(app).put(`/api/v1/colleges/${college.id}/image`).set('Authorization', admin.auth).attach('image', PNG, png);
+        await request(app).put(`/api/v1/colleges/${college.collegeId}/image`).set('Authorization', admin.auth).attach('image', PNG, png);
 
-        const res = await request(app).delete(`/api/v1/colleges/${college.id}`).set('Authorization', admin.auth);
+        const res = await request(app).delete(`/api/v1/colleges/${college.collegeId}`).set('Authorization', admin.auth);
 
         expect(res.status).toBe(204);
-        expect(deleteImage).toHaveBeenCalledWith(`college/${college.id}`);
+        expect(deleteImage).toHaveBeenCalledWith(`college/${college.collegeId}`);
         expect(await College.countDocuments()).toBe(0);
     });
 
@@ -302,16 +302,16 @@ describe('pictures of things that are deleted', () => {
         const student = await createUser('student');
         await request(app).put('/api/v1/auth/me/avatar').set('Authorization', student.auth).attach('image', PNG, png);
 
-        const res = await request(app).delete(`/api/v1/users/${student.user.id}`).set('Authorization', admin.auth);
+        const res = await request(app).delete(`/api/v1/users/${student.user.userId}`).set('Authorization', admin.auth);
 
         expect(res.status).toBe(204);
-        expect(deleteImage).toHaveBeenCalledWith(`avatar/${student.user.id}`);
+        expect(deleteImage).toHaveBeenCalledWith(`avatar/${student.user.userId}`);
     });
 
     it('asks storage for nothing when there was no picture', async () => {
         const admin = await createUser('admin');
         const college = await createCollege();
-        await request(app).delete(`/api/v1/colleges/${college.id}`).set('Authorization', admin.auth);
+        await request(app).delete(`/api/v1/colleges/${college.collegeId}`).set('Authorization', admin.auth);
         expect(deleteImage).not.toHaveBeenCalled();
     });
 });
@@ -325,10 +325,10 @@ describe('reviews', () => {
         await Review.create({ college: college.id, user: student.user.id, rating: 5, comment: 'Excellent teaching and facilities' });
         await Review.create({ college: college.id, user: other.user.id, rating: 3, comment: 'Average, but improving every year' });
 
-        const res = await request(app).get(`/api/v1/reviews?college=${college.id}&sort=highest`);
+        const res = await request(app).get(`/api/v1/reviews?college=${college.collegeId}&sort=highest`);
         const [withPicture, without] = res.body.data.reviews;
 
-        expect(withPicture.user).toEqual({ _id: student.user.id, username: student.user.username, avatar: upload.body.data.user.avatar });
-        expect(without.user).toEqual({ _id: other.user.id, username: other.user.username, avatar: null });
+        expect(withPicture.user).toEqual({ userId: student.user.userId, username: student.user.username, avatar: upload.body.data.user.avatar });
+        expect(without.user).toEqual({ userId: other.user.userId, username: other.user.username, avatar: null });
     });
 });

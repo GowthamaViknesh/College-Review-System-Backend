@@ -23,17 +23,20 @@ const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 // The same answer whatever the reason, so a caller learns nothing about which tokens exist
 const ended = () => new ApiError(401, 'Your session has ended. Please log in again.');
 
-async function issue(userId: string, family: string): Promise<SessionTokens> {
+// Both ids of the person logging in: MongoDB's, to link the stored token to them, and the public one, which goes in the access token
+type SessionUser = { id: string; userId: string };
+
+async function issue(user: SessionUser, family: string): Promise<SessionTokens> {
     const refreshToken = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + env.refreshTokenDays * 24 * 60 * 60 * 1000);
-    await refreshTokenRepository.create({ user: userId, tokenHash: hash(refreshToken), family, expiresAt });
+    await refreshTokenRepository.create({ user: user.id, tokenHash: hash(refreshToken), family, expiresAt });
 
-    return { token: signToken({ sub: userId }), refreshToken };
+    return { token: signToken({ sub: user.userId }), refreshToken };
 }
 
 // A new login: its tokens are unrelated to any other login the same person has on another device
-export function startSession(userId: string): Promise<SessionTokens> {
-    return issue(userId, randomUUID());
+export function startSession(user: SessionUser): Promise<SessionTokens> {
+    return issue(user, randomUUID());
 }
 
 export async function refreshSession(refreshToken: string): Promise<SessionTokens> {
@@ -55,12 +58,13 @@ export async function refreshSession(refreshToken: string): Promise<SessionToken
     }
 
     // The account may have been deleted since the token was issued
-    if (!(await userRepository.existsById(String(record.user)))) {
+    const user = await userRepository.findById(String(record.user));
+    if (!user) {
         await refreshTokenRepository.deleteFamily(record.family);
         throw ended();
     }
 
-    return issue(String(record.user), record.family);
+    return issue(user, record.family);
 }
 
 // Logging out ends this login only; the same person's other devices stay logged in.

@@ -8,7 +8,7 @@ beforeAll(connectTestDb);
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
-const UNKNOWN_ID = '64b7f0000000000000000000';
+const UNKNOWN_ID = 'Unknown0Unknown0';
 
 describe('access to /api/v1/users', () => {
     it('rejects unauthenticated requests with 401', async () => {
@@ -26,7 +26,7 @@ describe('access to /api/v1/users', () => {
         const admin = await createUser('admin');
         const student = await createUser('student');
 
-        await request(app).patch(`/api/v1/users/${student.user.id}/role`).set('Authorization', admin.auth).send({ role: 'admin' });
+        await request(app).patch(`/api/v1/users/${student.user.userId}/role`).set('Authorization', admin.auth).send({ role: 'admin' });
 
         const res = await request(app).get('/api/v1/users').set('Authorization', student.auth);
         expect(res.status).toBe(200);
@@ -112,7 +112,7 @@ describe('GET /api/v1/users', () => {
         expect(res.body.data.users).toHaveLength(2);
         expect(res.body.meta).toEqual({ page: 1, limit: 2, total: 3, totalPages: 2 });
         expect(res.body.data.users[0]).not.toHaveProperty('password');
-        expect(res.body.data.users[0].role).toEqual({ _id: expect.any(String), name: expect.any(String) });
+        expect(res.body.data.users[0].role).toEqual({ roleId: expect.any(String), name: expect.any(String) });
     });
 
     it('returns the second page without repeating users', async () => {
@@ -123,7 +123,7 @@ describe('GET /api/v1/users', () => {
         const first = await request(app).get('/api/v1/users?limit=2&page=1').set('Authorization', admin.auth);
         const second = await request(app).get('/api/v1/users?limit=2&page=2').set('Authorization', admin.auth);
 
-        const ids = [...first.body.data.users, ...second.body.data.users].map((u: { _id: string }) => u._id);
+        const ids = [...first.body.data.users, ...second.body.data.users].map((u: { userId: string }) => u.userId);
         expect(second.body.data.users).toHaveLength(1);
         expect(new Set(ids).size).toBe(3);
     });
@@ -164,7 +164,7 @@ describe('GET /api/v1/users/:id', () => {
     it('returns a single user', async () => {
         const admin = await createUser('admin');
         const student = await createUser('student');
-        const res = await request(app).get(`/api/v1/users/${student.user.id}`).set('Authorization', admin.auth);
+        const res = await request(app).get(`/api/v1/users/${student.user.userId}`).set('Authorization', admin.auth);
         expect(res.status).toBe(200);
         expect(res.body.data.user.email).toBe(student.user.email);
         expect(res.body.data.user.role.name).toBe('student');
@@ -184,7 +184,7 @@ describe('PATCH /api/v1/users/:id/role', () => {
         const admin = await createUser('admin');
         const student = await createUser('student');
 
-        const res = await request(app).patch(`/api/v1/users/${student.user.id}/role`).set('Authorization', admin.auth).send({ role: 'teacher' });
+        const res = await request(app).patch(`/api/v1/users/${student.user.userId}/role`).set('Authorization', admin.auth).send({ role: 'teacher' });
 
         expect(res.status).toBe(200);
         expect(res.body.data.user.role.name).toBe('teacher');
@@ -193,14 +193,14 @@ describe('PATCH /api/v1/users/:id/role', () => {
     it('rejects a role that does not exist', async () => {
         const admin = await createUser('admin');
         const student = await createUser('student');
-        const res = await request(app).patch(`/api/v1/users/${student.user.id}/role`).set('Authorization', admin.auth).send({ role: 'superuser' });
+        const res = await request(app).patch(`/api/v1/users/${student.user.userId}/role`).set('Authorization', admin.auth).send({ role: 'superuser' });
         expect(res.status).toBe(400);
         expect(res.body.errors[0].field).toBe('role');
     });
 
     it('stops an admin changing their own role', async () => {
         const admin = await createUser('admin');
-        const res = await request(app).patch(`/api/v1/users/${admin.user.id}/role`).set('Authorization', admin.auth).send({ role: 'student' });
+        const res = await request(app).patch(`/api/v1/users/${admin.user.userId}/role`).set('Authorization', admin.auth).send({ role: 'student' });
         expect(res.status).toBe(400);
         expect((await User.findById(admin.user.id))?.role.toString()).toBe(admin.user.role.toString());
     });
@@ -208,7 +208,7 @@ describe('PATCH /api/v1/users/:id/role', () => {
     it('forbids a teacher from changing roles', async () => {
         const teacher = await createUser('teacher');
         const student = await createUser('student');
-        const res = await request(app).patch(`/api/v1/users/${student.user.id}/role`).set('Authorization', teacher.auth).send({ role: 'admin' });
+        const res = await request(app).patch(`/api/v1/users/${student.user.userId}/role`).set('Authorization', teacher.auth).send({ role: 'admin' });
         expect(res.status).toBe(403);
     });
 });
@@ -217,14 +217,14 @@ describe('DELETE /api/v1/users/:id', () => {
     it('lets an admin delete a user', async () => {
         const admin = await createUser('admin');
         const student = await createUser('student');
-        const res = await request(app).delete(`/api/v1/users/${student.user.id}`).set('Authorization', admin.auth);
+        const res = await request(app).delete(`/api/v1/users/${student.user.userId}`).set('Authorization', admin.auth);
         expect(res.status).toBe(204);
         expect(await User.findById(student.user.id)).toBeNull();
     });
 
     it('stops an admin deleting their own account', async () => {
         const admin = await createUser('admin');
-        const res = await request(app).delete(`/api/v1/users/${admin.user.id}`).set('Authorization', admin.auth);
+        const res = await request(app).delete(`/api/v1/users/${admin.user.userId}`).set('Authorization', admin.auth);
         expect(res.status).toBe(400);
     });
 

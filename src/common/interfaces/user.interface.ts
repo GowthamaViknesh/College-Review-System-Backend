@@ -7,6 +7,8 @@ export interface StoredImage {
 }
 
 export interface IUser {
+    // The id the API uses for this user. MongoDB's _id never leaves the server.
+    userId: string;
     username: string;
     email: string;
     password: string;

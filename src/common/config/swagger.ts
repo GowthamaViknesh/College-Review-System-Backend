@@ -47,8 +47,8 @@ const definition = {
                 name: 'id',
                 in: 'path',
                 required: true,
-                description: 'MongoDB ObjectId',
-                schema: { type: 'string', pattern: '^[0-9a-fA-F]{24}$', example: '66f1a2b3c4d5e6f7a8b9c0d1' },
+                description: "The record's public id: its userId, roleId, collegeId or reviewId (16 letters and digits)",
+                schema: { type: 'string', pattern: '^[0-9A-Za-z]{16}$', example: 'h3Fq8ZsN1yUd6RoE' },
             },
         },
         schemas: {
@@ -56,14 +56,14 @@ const definition = {
             RoleSummary: {
                 type: 'object',
                 properties: {
-                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d1' },
+                    roleId: { type: 'string', example: 'Xb4mQ9tLw2Rk7ZpA' },
                     name: { type: 'string', example: 'student' },
                 },
             },
             User: {
                 type: 'object',
                 properties: {
-                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d2' },
+                    userId: { type: 'string', example: 'T7nKp2LmQ9xWc4Vb', description: 'Use this wherever a user id is asked for' },
                     username: { type: 'string', example: 'gowtham' },
                     email: { type: 'string', format: 'email', example: 'gowtham@example.com' },
                     role: { $ref: '#/components/schemas/RoleSummary' },
@@ -71,7 +71,7 @@ const definition = {
                         type: 'string',
                         format: 'uri',
                         nullable: true,
-                        example: 'https://res.cloudinary.com/demo/image/upload/v1/college-reviews/avatars/66f1a2b3c4d5e6f7a8b9c0d2.jpg',
+                        example: 'https://res.cloudinary.com/demo/image/upload/v1/college-reviews/avatars/T7nKp2LmQ9xWc4Vb.jpg',
                         description: 'Address of the profile picture; null if none was uploaded',
                     },
                     createdAt: { type: 'string', format: 'date-time' },
@@ -81,7 +81,7 @@ const definition = {
             Role: {
                 type: 'object',
                 properties: {
-                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d1' },
+                    roleId: { type: 'string', example: 'Xb4mQ9tLw2Rk7ZpA' },
                     name: { type: 'string', example: 'teacher' },
                     description: { type: 'string', example: 'Can add and edit colleges and write reviews' },
                     permissions: { type: 'array', items: { $ref: '#/components/schemas/PermissionName' } },
@@ -100,7 +100,7 @@ const definition = {
             College: {
                 type: 'object',
                 properties: {
-                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d3' },
+                    collegeId: { type: 'string', example: 'h3Fq8ZsN1yUd6RoE' },
                     name: { type: 'string', example: 'Anna University' },
                     city: { type: 'string', example: 'Chennai' },
                     state: { type: 'string', example: 'Tamil Nadu' },
@@ -109,10 +109,15 @@ const definition = {
                         type: 'string',
                         format: 'uri',
                         nullable: true,
-                        example: 'https://res.cloudinary.com/demo/image/upload/v1/college-reviews/colleges/66f1a2b3c4d5e6f7a8b9c0d3.jpg',
+                        example: 'https://res.cloudinary.com/demo/image/upload/v1/college-reviews/colleges/h3Fq8ZsN1yUd6RoE.jpg',
                         description: 'Address of the picture of the college; null if none was uploaded',
                     },
-                    createdBy: { type: 'string', description: 'Id of the user who added the college' },
+                    createdBy: {
+                        type: 'string',
+                        nullable: true,
+                        example: 'T7nKp2LmQ9xWc4Vb',
+                        description: 'userId of whoever added the college; null if that account was deleted',
+                    },
                     averageRating: { type: 'number', nullable: true, example: 4.3, description: 'Mean of all review ratings, 1 decimal; null with no reviews' },
                     reviewCount: { type: 'integer', example: 12 },
                     createdAt: { type: 'string', format: 'date-time' },
@@ -122,14 +127,18 @@ const definition = {
             Review: {
                 type: 'object',
                 properties: {
-                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d4' },
+                    reviewId: { type: 'string', example: 'M5cJx0PaG8vTe2Wn' },
                     college: {
                         type: 'object',
-                        properties: { _id: { type: 'string' }, name: { type: 'string', example: 'Anna University' } },
+                        properties: { collegeId: { type: 'string', example: 'h3Fq8ZsN1yUd6RoE' }, name: { type: 'string', example: 'Anna University' } },
                     },
                     user: {
                         type: 'object',
-                        properties: { _id: { type: 'string' }, username: { type: 'string', example: 'gowtham' }, avatar: { type: 'string', format: 'uri', nullable: true } },
+                        properties: {
+                            userId: { type: 'string', example: 'T7nKp2LmQ9xWc4Vb' },
+                            username: { type: 'string', example: 'gowtham' },
+                            avatar: { type: 'string', format: 'uri', nullable: true },
+                        },
                     },
                     rating: { type: 'integer', minimum: 1, maximum: 5, example: 4 },
                     comment: { type: 'string', example: 'Good faculty and placements, but the hostel needs work.' },
@@ -161,7 +170,7 @@ const definition = {
                 type: 'object',
                 required: ['college', 'rating', 'comment'],
                 properties: {
-                    college: { type: 'string', description: 'College id', example: '66f1a2b3c4d5e6f7a8b9c0d3' },
+                    college: { type: 'string', description: "The college's collegeId", example: 'h3Fq8ZsN1yUd6RoE' },
                     rating: { type: 'integer', minimum: 1, maximum: 5, example: 4 },
                     comment: { type: 'string', minLength: 10, maxLength: 2000, example: 'Good faculty and placements, but the hostel needs work.' },
                 },
@@ -192,12 +201,12 @@ const definition = {
             ActionLog: {
                 type: 'object',
                 properties: {
-                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d5' },
+                    logId: { type: 'string', example: 'u9Ld3BkY6sHq1ZfC' },
                     actor: {
                         type: 'object',
                         description: 'Who did it. Both fields are null when nobody was logged in, e.g. a failed login.',
                         properties: {
-                            id: { type: 'string', nullable: true, example: '66f1a2b3c4d5e6f7a8b9c0d2' },
+                            id: { type: 'string', nullable: true, example: 'T7nKp2LmQ9xWc4Vb' },
                             username: { type: 'string', nullable: true, example: 'admin' },
                         },
                     },
@@ -208,13 +217,13 @@ const definition = {
                         description: 'What it was done to',
                         properties: {
                             type: { type: 'string', enum: ['user', 'role', 'college', 'review'], example: 'user' },
-                            id: { type: 'string', nullable: true, example: '66f1a2b3c4d5e6f7a8b9c0d6' },
+                            id: { type: 'string', nullable: true, example: 'Rw6Ht1NcJ4kPz8Ys' },
                         },
                     },
                     details: { type: 'object', description: 'Facts specific to the action; includes "reason" when it was refused', example: { role: 'teacher' } },
                     ip: { type: 'string', nullable: true, example: '203.0.113.7' },
                     method: { type: 'string', example: 'PATCH' },
-                    path: { type: 'string', example: '/api/v1/users/66f1a2b3c4d5e6f7a8b9c0d6/role' },
+                    path: { type: 'string', example: '/api/v1/users/Rw6Ht1NcJ4kPz8Ys/role' },
                     statusCode: { type: 'integer', example: 200 },
                     createdAt: { type: 'string', format: 'date-time' },
                 },

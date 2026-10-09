@@ -18,6 +18,6 @@ export async function createUser(roleName = 'student', overrides: Record<string,
         role: role._id,
         ...overrides,
     });
-    const token = signToken({ sub: user.id });
+    const token = signToken({ sub: user.userId });
     return { user, token, auth: `Bearer ${token}` };
 }

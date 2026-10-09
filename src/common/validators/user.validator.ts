@@ -1,17 +1,16 @@
 import Joi from 'joi';
 import { DEFAULT_ROLE } from '../constants/roles';
+import { PUBLIC_ID_PATTERN } from '../utils/public-id';
 
 const email = Joi.string().trim().lowercase().email().max(254);
 // Roles are stored in the database, so here we only check the shape; services check that the role exists
 const roleName = Joi.string().trim().lowercase().max(30);
 
-// One pattern rather than .hex().length(24), so a bad id produces a single error instead of two
-export const objectId = Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .messages({ 'string.pattern.base': '{{#label}} must be a valid id' });
+// The public id of a record (userId, collegeId and so on): 16 letters and digits
+export const publicId = Joi.string().pattern(PUBLIC_ID_PATTERN).messages({ 'string.pattern.base': '{{#label}} must be a valid id' });
 
 export const idParamSchema = Joi.object({
-    id: objectId.required(),
+    id: publicId.required(),
 });
 
 const username = Joi.string().trim().min(3).max(30);
@@ -50,13 +49,19 @@ export const forgotPasswordSchema = Joi.object({
     email: email.required(),
 });
 
-export const resetPasswordSchema = Joi.object({
+const resetCode = Joi.string()
+    .trim()
+    .pattern(/^\d{6}$/)
+    .messages({ 'string.pattern.base': '{{#label}} must be the 6 digits from the email' });
+
+export const verifyResetCodeSchema = Joi.object({
     email: email.required(),
-    code: Joi.string()
-        .trim()
-        .pattern(/^\d{6}$/)
-        .required()
-        .messages({ 'string.pattern.base': '{{#label}} must be the 6 digits from the email' }),
+    code: resetCode.required(),
+});
+
+export const resetPasswordSchema = Joi.object({
+    // What entering the code correctly returned
+    resetToken: Joi.string().max(200).required(),
     newPassword: password.required(),
 });
 

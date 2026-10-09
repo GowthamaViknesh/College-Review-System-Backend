@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { objectId } from './user.validator';
+import { publicId } from './user.validator';
 import { REVIEW_SORTS } from '../interfaces/review.interface';
 
 const rating = Joi.number().integer().min(1).max(5);
@@ -7,7 +7,7 @@ const rating = Joi.number().integer().min(1).max(5);
 const comment = Joi.string().trim().min(10).max(2000);
 
 export const createReviewSchema = Joi.object({
-    college: objectId.required(),
+    college: publicId.required(),
     rating: rating.required(),
     comment: comment.required(),
 });
@@ -18,8 +18,8 @@ export const updateReviewSchema = Joi.object({ rating, comment }).min(1).message
 export const listReviewsQuerySchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
-    college: objectId,
-    user: objectId,
+    college: publicId,
+    user: publicId,
     minRating: rating,
     maxRating: rating.when('minRating', { is: Joi.exist(), then: Joi.number().min(Joi.ref('minRating')) }),
     search: Joi.string().trim().max(50),

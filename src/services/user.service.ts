@@ -46,8 +46,10 @@ export async function listUsers({ page, limit, role, search }: ListUsersQuery) {
     return { users, meta: paginationMeta(page, limit, total) };
 }
 
+// From here down, an id parameter is a user's public id (userId)
+
 export async function getUserById(id: string) {
-    const user = await userRepository.findById(id);
+    const user = await userRepository.findByUserId(id);
     if (!user) throw new ApiError(404, 'User not found');
     return user;
 }
@@ -57,7 +59,7 @@ export async function updateUserRole(actorId: string, id: string, roleName: stri
     if (actorId === id) throw new ApiError(400, 'You cannot change your own role');
 
     const role = await findRoleByName(roleName);
-    const user = await userRepository.updateRoleById(id, role._id);
+    const user = await userRepository.updateRoleByUserId(id, role._id);
     if (!user) throw new ApiError(404, 'User not found');
     return user;
 }
@@ -65,12 +67,13 @@ export async function updateUserRole(actorId: string, id: string, roleName: stri
 export async function deleteUser(actorId: string, id: string) {
     if (actorId === id) throw new ApiError(400, 'You cannot delete your own account');
 
-    const user = await userRepository.deleteById(id);
+    const user = await userRepository.deleteByUserId(id);
     if (!user) throw new ApiError(404, 'User not found');
 
     // A removed account should not keep influencing college ratings
-    await reviewRepository.deleteByUser(id);
-    await refreshTokenRepository.deleteByUser(id);
-    await passwordResetRepository.deleteByUser(id);
+    // Everything that belonged to the account is linked to it by MongoDB's id, not the public one
+    await reviewRepository.deleteByUser(user.id);
+    await refreshTokenRepository.deleteByUser(user.id);
+    await passwordResetRepository.deleteByUser(user.id);
     if (user.avatar) await deleteImage(user.avatar.publicId);
 }

@@ -8,8 +8,9 @@ export function findAll() {
     return Role.find().sort({ name: 1 });
 }
 
-export function findById(id: string) {
-    return Role.findById(id);
+// roleId is the role's public id, the one that arrives in a URL
+export function findByRoleId(roleId: string) {
+    return Role.findOne({ roleId });
 }
 
 export function findByName(name: string) {
@@ -20,12 +21,12 @@ export function create(fields: RoleFields) {
     return Role.create(fields);
 }
 
-export function updateById(id: string, fields: Partial<RoleFields>) {
-    return Role.findByIdAndUpdate(id, fields, { returnDocument: 'after', runValidators: true });
+export function updateByRoleId(roleId: string, fields: Partial<RoleFields>) {
+    return Role.findOneAndUpdate({ roleId }, fields, { returnDocument: 'after', runValidators: true });
 }
 
-export function deleteById(id: string) {
-    return Role.findByIdAndDelete(id);
+export function deleteByRoleId(roleId: string) {
+    return Role.findOneAndDelete({ roleId });
 }
 
 // Strips from every role any permission that is no longer defined in code

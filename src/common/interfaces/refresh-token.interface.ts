@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 
 export interface IRefreshToken {
+    refreshTokenId: string;
     user: Types.ObjectId;
     // SHA-256 of the token. The token itself is never stored, so a copy of the database cannot be used to log in.
     tokenHash: string;

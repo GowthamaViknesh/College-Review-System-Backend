@@ -5,7 +5,7 @@ import type { PermissionName } from '../constants/permissions';
 import * as userRepository from '../../repositories/user.repository';
 
 // The logged-in user, with their role and that role's permissions loaded
-export type AuthUser = NonNullable<Awaited<ReturnType<typeof userRepository.findByIdWithAccess>>>;
+export type AuthUser = NonNullable<Awaited<ReturnType<typeof userRepository.findByUserIdWithAccess>>>;
 
 declare global {
     namespace Express {
@@ -25,7 +25,7 @@ export const protect: RequestHandler = async (req, _res, next) => {
     const payload = verifyToken(header.slice('Bearer '.length));
 
     // Load from the DB so deleted users and role/permission changes take effect immediately, not at token expiry
-    const user = await userRepository.findByIdWithAccess(payload.sub);
+    const user = await userRepository.findByUserIdWithAccess(payload.sub);
     if (!user) throw new ApiError(401, 'User no longer exists');
 
     // A password change ends every login made before it, without waiting for those tokens to expire.

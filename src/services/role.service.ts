@@ -36,8 +36,10 @@ export function listRoles() {
     return roleRepository.findAll();
 }
 
+// From here down, an id parameter is a role's public id (roleId)
+
 export async function getRoleById(id: string) {
-    const role = await roleRepository.findById(id);
+    const role = await roleRepository.findByRoleId(id);
     if (!role) throw new ApiError(404, 'Role not found');
     return role;
 }
@@ -60,7 +62,7 @@ export async function updateRole(id: string, input: UpdateRoleInput) {
     }
 
     const { permissions, ...fields } = input;
-    return roleRepository.updateById(id, { ...fields, ...(permissions && { permissions: checkPermissions(permissions) }) });
+    return roleRepository.updateByRoleId(id, { ...fields, ...(permissions && { permissions: checkPermissions(permissions) }) });
 }
 
 export async function deleteRole(id: string) {
@@ -68,10 +70,10 @@ export async function deleteRole(id: string) {
     if (role.name === ADMIN_ROLE) throw new ApiError(403, 'The admin role cannot be deleted');
 
     // Deleting a role that is in use would leave those users with no role at all
-    const usersWithRole = await userRepository.countByRole(id);
+    const usersWithRole = await userRepository.countByRole(role._id);
     if (usersWithRole > 0) {
         throw new ApiError(409, `Role is assigned to ${usersWithRole} user(s); give them another role first`);
     }
 
-    await roleRepository.deleteById(id);
+    await roleRepository.deleteByRoleId(id);
 }
