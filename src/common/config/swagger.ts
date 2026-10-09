@@ -102,8 +102,10 @@ const definition = {
                 properties: {
                     collegeId: { type: 'string', example: 'h3Fq8ZsN1yUd6RoE' },
                     name: { type: 'string', example: 'Anna University' },
-                    city: { type: 'string', example: 'Chennai' },
+                    country: { type: 'string', example: 'India' },
                     state: { type: 'string', example: 'Tamil Nadu' },
+                    city: { type: 'string', example: 'Chennai' },
+                    address: { type: 'string', example: 'Sardar Patel Road, Guindy, 600025', description: 'Street-level address; may be empty' },
                     description: { type: 'string', example: 'Public state university founded in 1978' },
                     image: {
                         type: 'string',
@@ -148,11 +150,13 @@ const definition = {
             },
             CreateCollegeRequest: {
                 type: 'object',
-                required: ['name', 'city', 'state'],
+                required: ['name', 'country', 'state', 'city'],
                 properties: {
                     name: { type: 'string', minLength: 2, maxLength: 150, example: 'Anna University' },
-                    city: { type: 'string', example: 'Chennai' },
+                    country: { type: 'string', example: 'India' },
                     state: { type: 'string', example: 'Tamil Nadu' },
+                    city: { type: 'string', example: 'Chennai' },
+                    address: { type: 'string', maxLength: 300, example: 'Sardar Patel Road, Guindy, 600025' },
                     description: { type: 'string', maxLength: 2000, example: 'Public state university founded in 1978' },
                 },
             },
@@ -161,8 +165,10 @@ const definition = {
                 minProperties: 1,
                 properties: {
                     name: { type: 'string', example: 'Anna University, Chennai' },
-                    city: { type: 'string' },
+                    country: { type: 'string' },
                     state: { type: 'string' },
+                    city: { type: 'string' },
+                    address: { type: 'string' },
                     description: { type: 'string' },
                 },
             },

@@ -27,6 +27,11 @@ const collegeSchema = new Schema<ICollege>(
             unique: true,
             trim: true,
         },
+        country: {
+            type: String,
+            required: [true, 'Country is required'],
+            trim: true,
+        },
         city: {
             type: String,
             required: [true, 'City is required'],
@@ -35,6 +40,12 @@ const collegeSchema = new Schema<ICollege>(
         state: {
             type: String,
             required: [true, 'State is required'],
+            trim: true,
+        },
+        // Street, area, postcode: whatever is needed to find the campus within its city
+        address: {
+            type: String,
+            default: '',
             trim: true,
         },
         description: {
@@ -64,6 +75,6 @@ const collegeSchema = new Schema<ICollege>(
 );
 
 // Supports filtering the list by location
-collegeSchema.index({ state: 1, city: 1 });
+collegeSchema.index({ country: 1, state: 1, city: 1 });
 
 export const College = model<ICollege>('College', collegeSchema);

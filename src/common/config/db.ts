@@ -5,6 +5,7 @@ import { env } from './env';
 import logger from './logger';
 import { backfillPublicIds } from '../../services/public-id.service';
 import { syncRoles } from '../../services/role.service';
+import { fillMissingCountry } from '../../repositories/college.repository';
 
 export async function connectDatabase() {
     // Some local resolvers (VPN / DNS proxies) refuse SRV lookups needed by mongodb+srv:// URIs
@@ -16,6 +17,10 @@ export async function connectDatabase() {
 
     // Before anything is served: records made before public ids existed get one, so every lookup by public id finds them
     await backfillPublicIds();
+
+    // Colleges recorded before they had a country were all Indian ones
+    const withCountry = await fillMissingCountry('India');
+    if (withCountry) logger.info(`Set the country of ${withCountry} existing colleges to India`);
 
     // Keep roles consistent with the permissions defined in code, and make sure the admin role exists
     await syncRoles();

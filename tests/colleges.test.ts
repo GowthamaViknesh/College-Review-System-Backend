@@ -1,5 +1,6 @@
 import request from 'supertest';
 import app from '../src/app';
+import { fillMissingCountry } from '../src/repositories/college.repository';
 import { College } from '../src/models/college.model';
 import { Review } from '../src/models/review.model';
 import { createUser } from './helpers/auth';
@@ -11,7 +12,14 @@ afterEach(clearTestDb);
 afterAll(closeTestDb);
 
 const UNKNOWN_ID = 'Unknown0Unknown0';
-const newCollege = { name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu', description: 'Public state university' };
+const newCollege = {
+    name: 'Anna University',
+    country: 'India',
+    state: 'Tamil Nadu',
+    city: 'Chennai',
+    address: 'Sardar Patel Road, Guindy',
+    description: 'Public state university',
+};
 const names = (res: request.Response) => res.body.data.colleges.map((c: { name: string }) => c.name);
 
 describe('average rating and review count', () => {
@@ -150,6 +158,40 @@ describe('GET /api/v1/colleges', () => {
         expect(names(await request(app).get('/api/v1/colleges?search=.*'))).toEqual([]);
     });
 
+    it('filters by country', async () => {
+        await createCollege({ name: 'Anna University' });
+        await createCollege({ name: 'University of Colombo', country: 'Sri Lanka', state: 'Western Province', city: 'Colombo' });
+
+        expect(names(await request(app).get('/api/v1/colleges?country=sri%20lanka'))).toEqual(['University of Colombo']);
+        expect(names(await request(app).get('/api/v1/colleges?country=India'))).toEqual(['Anna University']);
+    });
+
+    it('gives colleges recorded before the country field existed the country India, once', async () => {
+        const { user } = await createUser('teacher');
+        const old = {
+            city: 'Chennai',
+            state: 'Tamil Nadu',
+            description: '',
+            collegeId: 'OldCollege000001',
+            createdBy: user._id,
+            createdAt: new Date('2026-01-01'),
+            updatedAt: new Date('2026-01-01'),
+        };
+        await College.collection.insertOne({ ...old, name: 'Old College' });
+        await createCollege({ name: 'University of Colombo', country: 'Sri Lanka' });
+
+        expect(await fillMissingCountry('India')).toBe(1);
+        expect(await fillMissingCountry('India')).toBe(0);
+
+        const res = await request(app).get('/api/v1/colleges?sort=name');
+        expect(res.body.data.colleges.map((c: { name: string; country: string }) => [c.name, c.country])).toEqual([
+            ['Old College', 'India'],
+            ['University of Colombo', 'Sri Lanka'],
+        ]);
+        // Not counted as an edit
+        expect((await College.findOne({ name: 'Old College' }))!.updatedAt).toEqual(new Date('2026-01-01'));
+    });
+
     it('rejects invalid query values', async () => {
         const res = await request(app).get('/api/v1/colleges?sort=random&minRating=9&limit=0');
         expect(res.status).toBe(400);
@@ -203,7 +245,32 @@ describe('POST /api/v1/colleges', () => {
         const teacher = await createUser('teacher');
         const res = await request(app).post('/api/v1/colleges').set('Authorization', teacher.auth).send({ name: 'A' });
         expect(res.status).toBe(400);
-        expect(res.body.errors.map((e: { field: string }) => e.field).sort()).toEqual(['city', 'name', 'state']);
+        expect(res.body.errors.map((e: { field: string }) => e.field).sort()).toEqual(['city', 'country', 'name', 'state']);
+    });
+
+    it('saves where the college is: country, state, city and a street address', async () => {
+        const teacher = await createUser('teacher');
+        const res = await request(app).post('/api/v1/colleges').set('Authorization', teacher.auth).send(newCollege);
+
+        expect(res.body.data.college).toMatchObject({ country: 'India', state: 'Tamil Nadu', city: 'Chennai', address: 'Sardar Patel Road, Guindy' });
+        const found = await request(app).get(`/api/v1/colleges/${res.body.data.college.collegeId}`);
+        expect(found.body.data.college).toMatchObject({ country: 'India', address: 'Sardar Patel Road, Guindy' });
+    });
+
+    it('treats the address as optional and limits its length', async () => {
+        const teacher = await createUser('teacher');
+        const { address, ...withoutAddress } = newCollege;
+
+        const created = await request(app).post('/api/v1/colleges').set('Authorization', teacher.auth).send(withoutAddress);
+        expect(created.status).toBe(201);
+        expect(created.body.data.college.address).toBe('');
+
+        const tooLong = await request(app)
+            .post('/api/v1/colleges')
+            .set('Authorization', teacher.auth)
+            .send({ ...newCollege, name: 'Another', address: 'x'.repeat(301) });
+        expect(tooLong.status).toBe(400);
+        expect(tooLong.body.errors[0].field).toBe('address');
     });
 });
 

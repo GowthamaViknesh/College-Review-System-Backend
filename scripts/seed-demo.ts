@@ -13,11 +13,39 @@ import { connectDatabase, disconnectDatabase } from '../src/common/config/db';
 const PASSWORD = process.env.SEED_DEMO_PASSWORD || 'Password@123';
 
 const COLLEGES = [
-    { name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu', description: 'Public state university known for engineering' },
-    { name: 'PSG College of Technology', city: 'Coimbatore', state: 'Tamil Nadu', description: 'Autonomous engineering college' },
-    { name: 'Indian Institute of Science', city: 'Bengaluru', state: 'Karnataka', description: 'Research university for science and engineering' },
-    { name: 'Loyola College', city: 'Chennai', state: 'Tamil Nadu', description: 'Arts and science college' },
-    { name: 'National Institute of Technology', city: 'Tiruchirappalli', state: 'Tamil Nadu', description: 'Institute of national importance' },
+    {
+        name: 'Anna University',
+        country: 'India',
+        state: 'Tamil Nadu',
+        city: 'Chennai',
+        address: 'Sardar Patel Road, Guindy, 600025',
+        description: 'Public state university known for engineering',
+    },
+    {
+        name: 'PSG College of Technology',
+        country: 'India',
+        state: 'Tamil Nadu',
+        city: 'Coimbatore',
+        address: 'Avinashi Road, Peelamedu, 641004',
+        description: 'Autonomous engineering college',
+    },
+    {
+        name: 'Indian Institute of Science',
+        country: 'India',
+        state: 'Karnataka',
+        city: 'Bengaluru',
+        address: 'CV Raman Road, 560012',
+        description: 'Research university for science and engineering',
+    },
+    { name: 'Loyola College', country: 'India', state: 'Tamil Nadu', city: 'Chennai', address: 'Sterling Road, Nungambakkam, 600034', description: 'Arts and science college' },
+    {
+        name: 'National Institute of Technology',
+        country: 'India',
+        state: 'Tamil Nadu',
+        city: 'Tiruchirappalli',
+        address: 'Tanjore Main Road, Thuvakudi, 620015',
+        description: 'Institute of national importance',
+    },
 ];
 
 const TEACHER = 'teacher';

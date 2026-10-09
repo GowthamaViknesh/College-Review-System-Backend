@@ -149,9 +149,9 @@ Every path is under `/api/v1`. Responses have one shape:
 
 | Method and path | Needs | What it does |
 |---|---|---|
-| `GET /colleges` | Public | List with `averageRating` and `reviewCount`. Query: `page`, `limit`, `search`, `city`, `state`, `minRating`, `sort` (`newest`, `name`, `rating`, `reviews`), `order` (`asc`, `desc`). |
+| `GET /colleges` | Public | List with `averageRating` and `reviewCount`. Query: `page`, `limit`, `search`, `country`, `state`, `city`, `minRating`, `sort` (`newest`, `name`, `rating`, `reviews`), `order` (`asc`, `desc`). |
 | `GET /colleges/:id` | Public | One college with its rating figures |
-| `POST /colleges` | `college:create` | Add a college |
+| `POST /colleges` | `college:create` | Add a college: `name`, `country`, `state`, `city`, and optionally `address` and `description` |
 | `PATCH /colleges/:id` | `college:update` | Edit a college |
 | `DELETE /colleges/:id` | `college:delete` | Delete a college, all its reviews and its picture |
 | `PUT /colleges/:id/image` | `college:update` | Upload or replace the college's picture (multipart form, field `image`) |
@@ -297,7 +297,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 299 tests in 19 files
+npm test                 # 303 tests in 19 files
 npm run test:coverage
 ```
 

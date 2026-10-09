@@ -76,8 +76,9 @@ function buildSort(sort: CollegeSort, order?: SortOrder) {
 
 const exactIgnoringCase = (text: string) => new RegExp(`^${escapeRegex(text)}$`, 'i');
 
-function buildMatch({ search, city, state }: CollegeFilter) {
+function buildMatch({ search, country, city, state }: CollegeFilter) {
     const match: Record<string, unknown> = {};
+    if (country) match.country = exactIgnoringCase(country);
     if (city) match.city = exactIgnoringCase(city);
     if (state) match.state = exactIgnoringCase(state);
     if (search) {
@@ -119,6 +120,14 @@ export function findByCollegeId(collegeId: string) {
 // Returns the college as it was before the change, so the caller can see the picture it had
 export function setImageByCollegeId(collegeId: string, image: StoredImage | null) {
     return College.findOneAndUpdate({ collegeId }, { image });
+}
+
+// Colleges added before the country field existed have none. Every one of those was in India (the
+// field was added when the place lists were), so that is filled in. Returns how many were changed.
+export async function fillMissingCountry(country: string) {
+    // The driver is used directly so this does not count as an edit (updatedAt stays as it was)
+    const result = await College.collection.updateMany({ country: { $exists: false } }, { $set: { country } });
+    return result.modifiedCount;
 }
 
 export function findByName(name: string) {

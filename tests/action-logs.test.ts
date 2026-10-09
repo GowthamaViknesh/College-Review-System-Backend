@@ -153,7 +153,7 @@ describe('what gets recorded', () => {
         await request(app).get('/api/v1/users').set('Authorization', admin.auth);
         await request(app).post('/api/v1/colleges').set('Authorization', admin.auth).send({ name: 'A' }); // 400
         await request(app).delete('/api/v1/colleges/Unknown0Unknown0').set('Authorization', admin.auth); // 404
-        await request(app).post('/api/v1/colleges').set('Authorization', admin.auth).send({ name: 'anna university', city: 'Chennai', state: 'Tamil Nadu' }); // 409
+        await request(app).post('/api/v1/colleges').set('Authorization', admin.auth).send({ name: 'anna university', country: 'India', city: 'Chennai', state: 'Tamil Nadu' }); // 409
         await request(app).delete(`/api/v1/colleges/${college.collegeId}`); // 401, nobody identified
 
         expect(await logs()).toHaveLength(0);
@@ -162,7 +162,7 @@ describe('what gets recorded', () => {
     it('keeps the username readable after the account is deleted', async () => {
         const admin = await createUser('admin');
         const teacher = await createUser('teacher', { username: 'mrs-priya' });
-        await request(app).post('/api/v1/colleges').set('Authorization', teacher.auth).send({ name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu' });
+        await request(app).post('/api/v1/colleges').set('Authorization', teacher.auth).send({ name: 'Anna University', country: 'India', city: 'Chennai', state: 'Tamil Nadu' });
 
         await request(app).delete(`/api/v1/users/${teacher.user.userId}`).set('Authorization', admin.auth);
 
@@ -175,7 +175,7 @@ describe('what gets recorded', () => {
         const student = await createUser('student');
         const asAdmin = (method: 'post' | 'patch' | 'delete', path: string) => request(app)[method](`/api/v1${path}`).set('Authorization', admin.auth);
 
-        const college = (await asAdmin('post', '/colleges').send({ name: 'Anna University', city: 'Chennai', state: 'Tamil Nadu' })).body.data.college;
+        const college = (await asAdmin('post', '/colleges').send({ name: 'Anna University', country: 'India', city: 'Chennai', state: 'Tamil Nadu' })).body.data.college;
         await asAdmin('patch', `/colleges/${college.collegeId}`).send({ city: 'Madurai' });
         const review = (await request(app).post('/api/v1/reviews').set('Authorization', student.auth).send({ college: college.collegeId, rating: 4, comment })).body.data.review;
         await request(app).patch(`/api/v1/reviews/${review.reviewId}`).set('Authorization', student.auth).send({ rating: 5 });

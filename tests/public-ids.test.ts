@@ -86,7 +86,7 @@ describe('public ids', () => {
         const created = await request(app)
             .post('/api/v1/colleges')
             .set('Authorization', admin.auth)
-            .send({ name: 'New College', city: 'Salem', state: 'Tamil Nadu', collegeId: wanted });
+            .send({ name: 'New College', country: 'India', city: 'Salem', state: 'Tamil Nadu', collegeId: wanted });
         const edited = await request(app).patch(`/api/v1/colleges/${college.collegeId}`).set('Authorization', admin.auth).send({ city: 'Erode', collegeId: wanted });
 
         expect(created.body.data.college.collegeId).not.toBe(wanted);

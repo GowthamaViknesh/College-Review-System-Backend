@@ -8,7 +8,7 @@ let counter = 0;
 export async function createCollege(overrides: Record<string, string> = {}) {
     counter += 1;
     const creator = overrides.createdBy ?? (await createUser('teacher')).user.id;
-    return College.create({ name: `College ${counter}`, city: 'Chennai', state: 'Tamil Nadu', description: '', createdBy: creator, ...overrides });
+    return College.create({ name: `College ${counter}`, country: 'India', state: 'Tamil Nadu', city: 'Chennai', description: '', createdBy: creator, ...overrides });
 }
 
 // Gives a college one review per rating, each from a different new student

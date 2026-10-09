@@ -6,8 +6,12 @@ export interface ICollege {
     // The id the API uses for this college. MongoDB's _id never leaves the server.
     collegeId: string;
     name: string;
-    city: string;
+    // Where the college is. Country, state and city are names as people read them ("India", "Tamil Nadu",
+    // "Chennai"), chosen from lists in the frontend; the address is the street-level part, typed freely.
+    country: string;
     state: string;
+    city: string;
+    address: string;
     description: string;
     // Picture of the college; null until someone uploads one
     image: StoredImage | null;
@@ -30,8 +34,10 @@ export interface CollegeWithStats extends Omit<ICollege, 'image' | 'createdBy'> 
 
 export interface CollegeInput {
     name: string;
-    city: string;
+    country: string;
     state: string;
+    city: string;
+    address: string;
     description: string;
 }
 
@@ -43,6 +49,7 @@ export type SortOrder = (typeof SORT_ORDERS)[number];
 
 export interface CollegeFilter {
     search?: string;
+    country?: string;
     city?: string;
     state?: string;
     minRating?: number;

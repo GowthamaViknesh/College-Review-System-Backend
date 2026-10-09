@@ -32,6 +32,9 @@ const router = Router();
  *         in: query
  *         description: Case-insensitive match on name, city or description
  *         schema: { type: string, maxLength: 50 }
+ *       - name: country
+ *         in: query
+ *         schema: { type: string, example: India }
  *       - name: city
  *         in: query
  *         schema: { type: string, example: Chennai }

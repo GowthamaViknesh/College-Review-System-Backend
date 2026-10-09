@@ -41,7 +41,7 @@ This API was built as a small production-style service. It is ready to run for a
 - Short-lived access tokens with single-use refresh tokens: reuse of a spent token ends that login, logging out and changing a password take effect on the server immediately, and only token hashes are stored.
 - Password reset by an emailed code that is short-lived, limited to five tries, usable once and stored only as a keyed hash, with answers that never reveal whether an address has an account.
 - Random public ids on every record; MongoDB's own ids, which reveal creation time and ordering, never appear in a response, a URL or a token.
-- 299 tests.
+- 303 tests.
 
 ## Known limitations
 
