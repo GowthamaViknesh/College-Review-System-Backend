@@ -21,6 +21,8 @@ export const registerSchema = Joi.object({
     username: username.required(),
     email: email.required(),
     password: password.required(),
+    // The college they attend, by its collegeId
+    college: publicId.required(),
     // Said out loud rather than silently ignored: people who sign up themselves cannot pick a role
     role: Joi.forbidden().messages({ 'any.unknown': 'A role cannot be chosen when registering' }),
 });
@@ -31,13 +33,15 @@ export const createUserSchema = Joi.object({
     email: email.required(),
     password: password.required(),
     role: roleName.default(DEFAULT_ROLE),
+    // A collegeId. Whether it may be left out depends on who is asking and on the role; the service decides.
+    college: publicId,
 });
 
 // Changing your own details: only the fields sent are changed. The role is not here; that needs role:assign.
 export const updateProfileSchema = Joi.object({ username, email }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
 
 // Someone with user:update changing another person's details. Not the role (that is role:assign) and not the password.
-export const updateUserSchema = Joi.object({ username, email }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
+export const updateUserSchema = Joi.object({ username, email, college: publicId }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
 
 export const changePasswordSchema = Joi.object({
     currentPassword: Joi.string().required(),
@@ -77,6 +81,7 @@ export const listUsersQuerySchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
     role: roleName,
+    college: publicId,
     search: Joi.string().trim().max(50),
 });
 

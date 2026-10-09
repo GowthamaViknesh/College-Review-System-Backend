@@ -68,7 +68,8 @@ const collegeSchema = new Schema<ICollege>(
         toJSON: {
             transform: (_doc, ret) => {
                 const { _id, __v, image, ...college } = ret;
-                return { ...college, image: image?.url ?? null };
+                // Left out altogether when the picture was not loaded, as when a college is only named inside another record
+                return { ...college, ...(image !== undefined && { image: image?.url ?? null }) };
             },
         },
     },

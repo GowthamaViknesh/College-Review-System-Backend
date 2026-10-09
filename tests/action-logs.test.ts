@@ -5,9 +5,13 @@ import * as actionLogRepository from '../src/repositories/action-log.repository'
 import { flushActionLogs, recordAction } from '../src/services/action-log.service';
 import { createUser } from './helpers/auth';
 import { createCollege } from './helpers/data';
+import { createHomeCollege, inCollege } from './helpers/college';
 import { clearTestDb, closeTestDb, connectTestDb } from './helpers/db';
 
 beforeAll(connectTestDb);
+beforeEach(async () => {
+    await createHomeCollege();
+});
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
@@ -83,7 +87,7 @@ describe('what gets recorded', () => {
         await request(app)
             .post('/api/v1/users')
             .set('Authorization', teacher.auth)
-            .send({ username: 'sneaky', email: 'sneaky@example.com', password: 'password123', role: 'admin' });
+            .send(inCollege({ username: 'sneaky', email: 'sneaky@example.com', password: 'password123', role: 'admin' }));
 
         const [entry] = await logs();
         expect(entry).toMatchObject({
@@ -113,7 +117,7 @@ describe('what gets recorded', () => {
         const credentials = { email: 'new@example.com', password: 'password123' };
         await request(app)
             .post('/api/v1/auth/register')
-            .send({ username: 'newuser', ...credentials });
+            .send(inCollege({ username: 'newuser', ...credentials }));
         await request(app).post('/api/v1/auth/login').send(credentials);
         await request(app)
             .post('/api/v1/auth/login')
@@ -133,10 +137,15 @@ describe('what gets recorded', () => {
 
     it('never stores a password or a token', async () => {
         const admin = await createUser('admin');
-        await request(app).post('/api/v1/auth/register').send({ username: 'newuser', email: 'new@example.com', password: 'super-secret-1' });
+        await request(app)
+            .post('/api/v1/auth/register')
+            .send(inCollege({ username: 'newuser', email: 'new@example.com', password: 'super-secret-1' }));
         await request(app).post('/api/v1/auth/login').send({ email: 'new@example.com', password: 'super-secret-1' });
         await request(app).post('/api/v1/auth/login').send({ email: 'new@example.com', password: 'super-secret-2' });
-        await request(app).post('/api/v1/users').set('Authorization', admin.auth).send({ username: 'made', email: 'made@example.com', password: 'super-secret-3' });
+        await request(app)
+            .post('/api/v1/users')
+            .set('Authorization', admin.auth)
+            .send(inCollege({ username: 'made', email: 'made@example.com', password: 'super-secret-3' }));
 
         const stored = JSON.stringify(await logs());
         expect(stored).not.toContain('super-secret');
@@ -184,7 +193,7 @@ describe('what gets recorded', () => {
         const role = (await asAdmin('post', '/roles').send({ name: 'moderator' })).body.data.role;
         await asAdmin('patch', `/roles/${role.roleId}`).send({ permissions: ['review:delete:any'] });
         await asAdmin('delete', `/roles/${role.roleId}`);
-        const user = (await asAdmin('post', '/users').send({ username: 'made', email: 'made@example.com', password: 'password123' })).body.data.user;
+        const user = (await asAdmin('post', '/users').send(inCollege({ username: 'made', email: 'made@example.com', password: 'password123' }))).body.data.user;
         await asAdmin('patch', `/users/${user.userId}/role`).send({ role: 'teacher' });
         await asAdmin('delete', `/users/${user.userId}`);
 

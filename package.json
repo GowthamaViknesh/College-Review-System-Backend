@@ -13,7 +13,8 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "migrate:ids": "tsx scripts/migrate-ids.ts"
+    "migrate:ids": "tsx scripts/migrate-ids.ts",
+    "wipe": "tsx scripts/wipe.ts"
   },
   "keywords": [],
   "author": "Gowthama Viknesh K",

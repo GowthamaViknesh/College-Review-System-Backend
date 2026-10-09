@@ -6,7 +6,7 @@ import { audit } from '../common/middlewares/audit.middleware';
 import * as userController from '../controllers/user.controller';
 import { validate } from '../common/middlewares/validate.middleware';
 import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
-import { protect, requirePermission } from '../common/middlewares/auth.middleware';
+import { protect, requireAnyPermission, requirePermission } from '../common/middlewares/auth.middleware';
 import { assignRoleSchema, createUserSchema, idParamSchema, listUsersQuerySchema, updateUserSchema } from '../common/validators/user.validator';
 
 const router = Router();
@@ -20,8 +20,9 @@ router.use(protect);
  *     tags: [Users]
  *     summary: Create an account for someone else
  *     description: >
- *       Requires `user:create`. Giving the new user any role other than `student` also requires `role:assign`,
- *       so a teacher can create students but cannot create an admin.
+ *       Requires `user:create`. With `role:assign` as well you choose the role and the college (a college is
+ *       required for every role except admin). Without it, as a teacher, you can create students only, and
+ *       they join your own college: leave `college` out.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -54,7 +55,9 @@ router.post('/', audit(ACTIONS.USER_CREATE, 'user'), requirePermission(PERMISSIO
  *   get:
  *     tags: [Users]
  *     summary: List users
- *     description: Requires `user:read`. Newest first.
+ *     description: >
+ *       Requires `user:read` to see everyone, or `user:read:college` to see the students of your own college
+ *       only. In the second case the `role` and `college` filters are ignored: the list is always those students.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -64,6 +67,10 @@ router.post('/', audit(ACTIONS.USER_CREATE, 'user'), requirePermission(PERMISSIO
  *       - name: limit
  *         in: query
  *         schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+ *       - name: college
+ *         in: query
+ *         description: Only users of this college (a collegeId)
+ *         schema: { type: string }
  *       - name: role
  *         in: query
  *         description: Only users with this role name
@@ -99,7 +106,7 @@ router.post('/', audit(ACTIONS.USER_CREATE, 'user'), requirePermission(PERMISSIO
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-router.get('/', requirePermission(PERMISSIONS.USER_READ), validate({ query: listUsersQuerySchema }), userController.listUsers);
+router.get('/', requireAnyPermission(PERMISSIONS.USER_READ, PERMISSIONS.USER_READ_COLLEGE), validate({ query: listUsersQuerySchema }), userController.listUsers);
 
 /**
  * @openapi
@@ -107,7 +114,9 @@ router.get('/', requirePermission(PERMISSIONS.USER_READ), validate({ query: list
  *   get:
  *     tags: [Users]
  *     summary: Get one user
- *     description: Requires `user:read`.
+ *     description: >
+ *       Requires `user:read`, or `user:read:college` for a student of your own college. Anyone outside what
+ *       you may see is reported as not found.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -128,7 +137,7 @@ router.get('/', requirePermission(PERMISSIONS.USER_READ), validate({ query: list
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.get('/:id', requirePermission(PERMISSIONS.USER_READ), validate({ params: idParamSchema }), userController.getUser);
+router.get('/:id', requireAnyPermission(PERMISSIONS.USER_READ, PERMISSIONS.USER_READ_COLLEGE), validate({ params: idParamSchema }), userController.getUser);
 
 /**
  * @openapi
@@ -235,7 +244,7 @@ router.patch(
 router.put(
     '/:id/avatar',
     audit(ACTIONS.USER_UPDATE, 'user'),
-    requirePermission(PERMISSIONS.USER_UPDATE),
+    requireAnyPermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.USER_CREATE),
     validate({ params: idParamSchema }),
     uploadLimiter,
     imageUpload,
@@ -273,7 +282,13 @@ router.put(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.delete('/:id/avatar', audit(ACTIONS.USER_UPDATE, 'user'), requirePermission(PERMISSIONS.USER_UPDATE), validate({ params: idParamSchema }), userController.removeUserAvatar);
+router.delete(
+    '/:id/avatar',
+    audit(ACTIONS.USER_UPDATE, 'user'),
+    requireAnyPermission(PERMISSIONS.USER_UPDATE, PERMISSIONS.USER_CREATE),
+    validate({ params: idParamSchema }),
+    userController.removeUserAvatar,
+);
 
 /**
  * @openapi

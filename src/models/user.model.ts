@@ -46,6 +46,13 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
             required: [true, 'Role is required'],
             index: true,
         },
+        // Every teacher and student belongs to one college; administrators belong to none
+        college: {
+            type: Schema.Types.ObjectId,
+            ref: 'College',
+            default: null,
+            index: true,
+        },
         avatar: {
             type: new Schema<StoredImage>({ url: { type: String, required: true }, publicId: { type: String, required: true } }, { _id: false }),
             default: null,

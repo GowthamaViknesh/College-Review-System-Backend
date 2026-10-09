@@ -84,12 +84,24 @@ async function seedDemo() {
         return (await User.findOne({ email })) ?? (await User.create({ username, email, password: PASSWORD, role: role._id }));
     };
 
-    await ensureUser(TEACHER, teacherRole);
+    const teacher = await ensureUser(TEACHER, teacherRole);
     const students = [];
     for (const username of STUDENTS) students.push(await ensureUser(username, studentRole));
     logger.info(`Accounts ready: ${TEACHER}@example.com and ${students.length} students (password ${PASSWORD})`);
 
+    // Every teacher and student belongs to a college. The teacher and the first three students share the
+    // first college, so logging in as the teacher shows a list of their own students; the other two
+    // students are in the second. Accounts that already have a college are left where they are.
+    const assignColleges = async () => {
+        const [first, second] = await College.find().sort({ createdAt: 1, _id: 1 }).limit(2);
+        if (!first) return;
+        const places = [teacher, ...students].map((user, i) => ({ user, college: i <= 3 ? first : (second ?? first) }));
+        for (const { user, college } of places) if (!user.college) await User.updateOne({ _id: user._id }, { college: college._id });
+        logger.info(`Demo accounts belong to ${first.name}${second ? ` and ${second.name}` : ''}`);
+    };
+
     if (await College.exists({})) {
+        await assignColleges();
         logger.info('Colleges already exist, so no colleges or reviews were added');
         return disconnectDatabase();
     }
@@ -105,6 +117,7 @@ async function seedDemo() {
         return { ...review, createdAt: writtenAt, updatedAt: writtenAt };
     });
     await Review.insertMany(reviews);
+    await assignColleges();
 
     logger.info(`Created ${colleges.length} colleges and ${reviews.length} reviews`);
     await disconnectDatabase();

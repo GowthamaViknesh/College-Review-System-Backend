@@ -61,3 +61,15 @@ export const requirePermission =
         if (!allowed) throw new ApiError(403, 'You do not have permission to perform this action');
         next();
     };
+
+// Allows the request if the user's role grants at least one of the listed permissions. For endpoints
+// that serve two kinds of people (everyone's users, or only your own college's); the service then
+// decides how much each of them gets.
+export const requireAnyPermission =
+    (...accepted: PermissionName[]): RequestHandler =>
+    (req, _res, next) => {
+        if (!req.user || !req.permissions) throw new ApiError(401, 'Authentication required');
+
+        if (!accepted.some((permission) => req.permissions!.has(permission))) throw new ApiError(403, 'You do not have permission to perform this action');
+        next();
+    };

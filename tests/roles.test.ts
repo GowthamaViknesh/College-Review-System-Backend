@@ -63,7 +63,7 @@ describe('GET /api/v1/roles', () => {
         const byName = Object.fromEntries(res.body.data.roles.map((r: { name: string }) => [r.name, r]));
         expect(Object.keys(byName)).toEqual(['admin', 'student', 'teacher']);
         expect(byName.admin.permissions).toEqual([...ALL_PERMISSIONS].sort());
-        expect(byName.teacher.permissions).toEqual(['college:create', 'college:update', 'user:create']);
+        expect(byName.teacher.permissions).toEqual(['college:create', 'college:update', 'user:create', 'user:read:college']);
         expect(byName.student.permissions).toEqual(['review:create']);
         expect(Object.keys(byName.student).sort()).toEqual(['createdAt', 'description', 'name', 'permissions', 'roleId', 'updatedAt']);
     });

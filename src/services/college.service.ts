@@ -1,5 +1,6 @@
 import * as reviewRepository from '../repositories/review.repository';
 import * as collegeRepository from '../repositories/college.repository';
+import * as userRepository from '../repositories/user.repository';
 import { ApiError, paginationMeta } from '../common/utils/utils';
 import { deleteImage, uploadImage } from '../common/utils/image-storage';
 import { CollegeInput, ListCollegesQuery } from '../common/interfaces/college.interface';
@@ -66,6 +67,13 @@ export async function removeCollegeImage(id: string) {
 }
 
 export async function deleteCollege(id: string) {
+    const existing = await collegeRepository.findByCollegeId(id);
+    if (!existing) throw new ApiError(404, 'College not found');
+
+    // Every teacher and student belongs to a college, so one that still has people cannot simply vanish
+    const members = await userRepository.countByCollege(existing.id);
+    if (members > 0) throw new ApiError(409, `${members} user(s) belong to this college; move them to another college first`);
+
     const college = await collegeRepository.deleteByCollegeId(id);
     if (!college) throw new ApiError(404, 'College not found');
 

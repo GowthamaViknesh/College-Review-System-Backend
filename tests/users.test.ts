@@ -2,9 +2,13 @@ import request from 'supertest';
 import app from '../src/app';
 import { User } from '../src/models/user.model';
 import { createUser } from './helpers/auth';
+import { createHomeCollege, homeCollegeDbId, inCollege } from './helpers/college';
 import { clearTestDb, closeTestDb, connectTestDb } from './helpers/db';
 
 beforeAll(connectTestDb);
+beforeEach(async () => {
+    await createHomeCollege();
+});
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
@@ -16,8 +20,8 @@ describe('access to /api/v1/users', () => {
         expect(res.status).toBe(401);
     });
 
-    it.each(['student', 'teacher'])('forbids a %s with 403', async (role) => {
-        const { auth } = await createUser(role);
+    it('forbids a student with 403', async () => {
+        const { auth } = await createUser('student');
         const res = await request(app).get('/api/v1/users').set('Authorization', auth);
         expect(res.status).toBe(403);
     });
@@ -41,7 +45,7 @@ describe('POST /api/v1/users', () => {
         const res = await request(app)
             .post('/api/v1/users')
             .set('Authorization', admin.auth)
-            .send({ ...newUser, role: 'teacher' });
+            .send(inCollege({ ...newUser, role: 'teacher' }));
 
         expect(res.status).toBe(201);
         expect(res.body.data.user).toMatchObject({ username: 'newuser', email: 'new@example.com', role: { name: 'teacher' } });
@@ -51,7 +55,7 @@ describe('POST /api/v1/users', () => {
 
     it('lets the new user log in with the password they were given', async () => {
         const admin = await createUser('admin');
-        await request(app).post('/api/v1/users').set('Authorization', admin.auth).send(newUser);
+        await request(app).post('/api/v1/users').set('Authorization', admin.auth).send(inCollege(newUser));
 
         const res = await request(app).post('/api/v1/auth/login').send({ email: 'new@example.com', password: 'password123' });
         expect(res.status).toBe(200);
@@ -59,9 +63,9 @@ describe('POST /api/v1/users', () => {
     });
 
     it('lets a teacher create students, but nothing more powerful', async () => {
-        const teacher = await createUser('teacher');
+        const teacher = await createUser('teacher', { college: homeCollegeDbId() });
 
-        const asStudent = await request(app).post('/api/v1/users').set('Authorization', teacher.auth).send(newUser);
+        const asStudent = await request(app).post('/api/v1/users').set('Authorization', teacher.auth).send(inCollege(newUser));
         expect(asStudent.status).toBe(201);
         expect(asStudent.body.data.user.role.name).toBe('student');
 
@@ -69,7 +73,7 @@ describe('POST /api/v1/users', () => {
             const res = await request(app)
                 .post('/api/v1/users')
                 .set('Authorization', teacher.auth)
-                .send({ username: 'sneaky', email: 'sneaky@example.com', password: 'password123', role });
+                .send(inCollege({ username: 'sneaky', email: 'sneaky@example.com', password: 'password123', role }));
             expect(res.status).toBe(403);
         }
         expect(await User.findOne({ username: 'sneaky' })).toBeNull();
@@ -77,13 +81,13 @@ describe('POST /api/v1/users', () => {
 
     it('forbids a student and rejects a request with no token', async () => {
         const student = await createUser('student');
-        expect((await request(app).post('/api/v1/users').set('Authorization', student.auth).send(newUser)).status).toBe(403);
-        expect((await request(app).post('/api/v1/users').send(newUser)).status).toBe(401);
+        expect((await request(app).post('/api/v1/users').set('Authorization', student.auth).send(inCollege(newUser))).status).toBe(403);
+        expect((await request(app).post('/api/v1/users').send(inCollege(newUser))).status).toBe(401);
     });
 
     it('rejects an unknown role, invalid fields and duplicates', async () => {
         const admin = await createUser('admin');
-        const post = (body: object) => request(app).post('/api/v1/users').set('Authorization', admin.auth).send(body);
+        const post = (body: object) => request(app).post('/api/v1/users').set('Authorization', admin.auth).send(inCollege(body));
 
         const unknownRole = await post({ ...newUser, role: 'superuser' });
         expect(unknownRole.status).toBe(400);

@@ -1,7 +1,7 @@
 import * as roleRepository from '../repositories/role.repository';
 import * as userRepository from '../repositories/user.repository';
 import { endAllSessions, startSession } from './session.service';
-import { createUserWithRole } from './user.service';
+import { registerUser } from './user.service';
 import { DEFAULT_ROLE } from '../common/constants/roles';
 import { ApiError, validationError } from '../common/utils/utils';
 import { deleteImage, uploadImage } from '../common/utils/image-storage';
@@ -15,7 +15,7 @@ export async function register(input: RegisterInput) {
         throw new ApiError(503, 'Registration is currently unavailable');
     }
 
-    const user = await createUserWithRole(input, DEFAULT_ROLE);
+    const user = await registerUser(input);
     return { user, ...(await startSession(user)) };
 }
 

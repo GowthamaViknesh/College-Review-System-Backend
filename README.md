@@ -86,6 +86,7 @@ Things to know about the free plan: the service sleeps after 15 minutes without 
 | `npm run test:coverage` | Run all tests and report coverage |
 | `npm run seed` | Create the starter roles and the first admin. Safe to run again. |
 | `npm run seed:demo` | Add sample accounts, colleges and reviews. Safe to run again. |
+| `npm run wipe` | Empties the database, keeping only the administrator accounts. Run as is, it only lists what would go; `npm run wipe -- --yes` deletes it. There is no undo. |
 | `npm run migrate:ids` | One-off for a database used before public ids existed: rewrites the ids inside older action log entries. Safe to run again. |
 | `npm run format` / `npm run format:check` | Format the code with Biome, or only check it |
 
@@ -193,6 +194,7 @@ Every user has one **role**, and a role is a list of **permissions**. Endpoints 
 | `user:read`, `user:delete` | ✓ | | |
 | `user:create` | ✓ | ✓ (students only) | |
 | `user:update` | ✓ | | |
+| `user:read:college` | | ✓ | |
 | `role:read`, `role:create`, `role:update`, `role:delete`, `role:assign` | ✓ | | |
 | `college:create`, `college:update` | ✓ | ✓ | |
 | `college:delete` | ✓ | | |
@@ -223,6 +225,21 @@ Rules that are about a specific record, not a role, are checked separately: only
 Every change made through the API is recorded: who did it, what they did, to what, from which IP, and whether it succeeded. Refused attempts (403) and failed logins are recorded too, with the reason. Reads, validation errors and not-found requests are left out to keep the log useful.
 
 Entries cannot be edited or deleted through the API, never contain passwords or tokens, and are removed automatically after `ACTION_LOG_RETENTION_DAYS`.
+
+## Colleges and who belongs to them
+
+Every teacher and student belongs to one college; administrators belong to none. The college is chosen when the account is made: a student signing up picks the college they attend, and whoever creates an account for someone else places them.
+
+That membership is what limits a teacher:
+
+- **Creating accounts.** Without `role:assign`, `user:create` makes student accounts only, and they join the creator's own college.
+- **Seeing accounts.** `user:read:college` lists the students of your own college and nobody else. Other accounts are reported as not found, and the `role` and `college` filters cannot widen the list. `user:read` (admins) still sees everyone.
+- **Moving people.** Changing someone's college needs `role:assign`, like changing their role, because both decide who can see and manage them.
+- **Deleting a college** is refused while anyone belongs to it.
+
+None of this is tied to the name "teacher": it follows from which permissions a role holds, so a custom role behaves the same way. Reviews and colleges stay open to every logged-in user, showing an author's name and picture but none of their account details.
+
+Accounts made before colleges were assigned have none until an administrator sets one (Users, Edit). A teacher in that state sees an empty list and cannot create accounts.
 
 ## Ids
 
@@ -299,7 +316,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 325 tests in 21 files
+npm test                 # 346 tests in 22 files
 npm run test:coverage
 ```
 

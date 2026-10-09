@@ -1,14 +1,40 @@
 import * as roleRepository from '../repositories/role.repository';
 import * as userRepository from '../repositories/user.repository';
 import * as reviewRepository from '../repositories/review.repository';
+import * as collegeRepository from '../repositories/college.repository';
 import * as refreshTokenRepository from '../repositories/refresh-token.repository';
 import * as passwordResetRepository from '../repositories/password-reset.repository';
-import { DEFAULT_ROLE } from '../common/constants/roles';
+import { ADMIN_ROLE, DEFAULT_ROLE } from '../common/constants/roles';
 import { PERMISSIONS } from '../common/constants/permissions';
 import { ApiError, paginationMeta, validationError } from '../common/utils/utils';
 import { deleteImage } from '../common/utils/image-storage';
 import * as authzService from './authz.service';
-import { CreateUserRequest, ListUsersQuery, RegisterInput, UpdateProfileInput } from '../common/interfaces/user.interface';
+import { CreateUserRequest, ListUsersQuery, RegisterInput, UpdateUserInput } from '../common/interfaces/user.interface';
+
+// Whoever is making the request: what their role allows, and the college they belong to (if any).
+// Built by the controller from the logged-in user.
+export interface Actor {
+    userId: string;
+    permissions: Set<string>;
+    // id is MongoDB's, collegeId the public one
+    college: { id: string; collegeId: string } | null;
+}
+
+// Two kinds of people manage accounts:
+//  - someone with role:assign places people anywhere: any role, any college;
+//  - someone without it (a teacher, as the roles are first set up) works inside their own college and
+//    with student accounts only. They create students there, and with user:read:college they see them.
+const mayPlaceAnyone = (actor: Actor) => actor.permissions.has(PERMISSIONS.ROLE_ASSIGN);
+
+const roleNameOf = (user: { role: unknown }) => (user.role as { name?: string } | null)?.name;
+const collegeIdOf = (user: { college: unknown }) => {
+    const college = user.college as { _id?: unknown } | null;
+    return college?._id ? String(college._id) : null;
+};
+
+// A student of the actor's own college: the only accounts someone without role:assign has any say over
+const isOwnStudent = (actor: Actor, user: { role: unknown; college: unknown }) =>
+    actor.college !== null && roleNameOf(user) === DEFAULT_ROLE && collegeIdOf(user) === actor.college.id;
 
 // The API refers to roles by name; the database stores them by id
 async function findRoleByName(name: string) {
@@ -17,8 +43,15 @@ async function findRoleByName(name: string) {
     return role;
 }
 
-// Shared by self-registration and by users created by someone else
-export async function createUserWithRole(input: RegisterInput, roleName: string) {
+// The API refers to colleges by their public id; users are linked to them by MongoDB's
+async function findCollege(collegeId: string) {
+    const college = await collegeRepository.findByCollegeId(collegeId);
+    if (!college) throw validationError('college', 'That college does not exist');
+    return college;
+}
+
+// Shared by self-registration and by users created by someone else. college is MongoDB's id, or null for none.
+async function createUserWithRole(input: Omit<RegisterInput, 'college'>, roleName: string, college: string | null) {
     const role = await findRoleByName(roleName);
 
     const existing = await userRepository.findByEmailOrUsername(input.email, input.username);
@@ -27,63 +60,111 @@ export async function createUserWithRole(input: RegisterInput, roleName: string)
         throw new ApiError(409, `${field} already exists`);
     }
 
-    return userRepository.create({ ...input, role: role._id });
+    return userRepository.create({ username: input.username, email: input.email, password: input.password, role: role._id, college });
 }
 
-export async function createUser(actorPermissions: Set<string>, { role, ...input }: CreateUserRequest) {
-    // Without this, anyone allowed to create users (e.g. a teacher) could create themselves an admin account
-    if (role !== DEFAULT_ROLE && !actorPermissions.has(PERMISSIONS.ROLE_ASSIGN)) {
-        throw new ApiError(403, `You may only create users with the "${DEFAULT_ROLE}" role`);
+// Signing up yourself: always a student, in the college you say you attend
+export async function registerUser({ college, ...input }: RegisterInput) {
+    return createUserWithRole(input, DEFAULT_ROLE, (await findCollege(college)).id);
+}
+
+export async function createUser(actor: Actor, { role, college, ...input }: CreateUserRequest) {
+    if (mayPlaceAnyone(actor)) {
+        // Everyone belongs to a college except administrators, who look after all of them
+        if (!college && role !== ADMIN_ROLE) throw validationError('college', 'Choose the college this person belongs to');
+        return createUserWithRole(input, role, college ? (await findCollege(college)).id : null);
     }
 
-    return createUserWithRole(input, role);
+    // Without this, anyone allowed to create users (e.g. a teacher) could create themselves an admin account
+    if (role !== DEFAULT_ROLE) throw new ApiError(403, `You may only create users with the "${DEFAULT_ROLE}" role`);
+    if (!actor.college) throw new ApiError(403, 'You are not assigned to a college yet, so you cannot create accounts. Ask an administrator.');
+    // The new student joins the creator's college; naming a different one is refused rather than quietly ignored
+    if (college && college !== actor.college.collegeId) throw new ApiError(403, 'You may only create accounts in your own college');
+
+    return createUserWithRole(input, role, actor.college.id);
 }
 
-export async function listUsers({ page, limit, role, search }: ListUsersQuery) {
-    const filter = { search, ...(role && { role: (await findRoleByName(role))._id }) };
+export async function listUsers(actor: Actor, { page, limit, role, college, search }: ListUsersQuery) {
+    const nobody = { users: [], meta: paginationMeta(page, limit, 0) };
+    let filter: { search?: string; role?: unknown; college?: string };
 
-    const [users, total] = await Promise.all([userRepository.findPage(filter, page, limit), userRepository.count(filter)]);
+    if (actor.permissions.has(PERMISSIONS.USER_READ)) {
+        const collegeDoc = college ? await collegeRepository.findByCollegeId(college) : null;
+        // Asking for the users of a college that does not exist is an empty list, not an error
+        if (college && !collegeDoc) return nobody;
+        filter = { search, ...(role && { role: (await findRoleByName(role))._id }), ...(collegeDoc && { college: collegeDoc.id }) };
+    } else {
+        // user:read:college: the students of the actor's own college, whatever the query asks for
+        const studentRole = await roleRepository.findByName(DEFAULT_ROLE);
+        if (!actor.college || !studentRole) return nobody;
+        filter = { search, role: studentRole._id, college: actor.college.id };
+    }
 
+    const [users, total] = await Promise.all([userRepository.findPage(filter as never, page, limit), userRepository.count(filter as never)]);
     return { users, meta: paginationMeta(page, limit, total) };
 }
 
 // From here down, an id parameter is a user's public id (userId)
 
-export async function getUserById(id: string) {
+async function findUser(id: string) {
     const user = await userRepository.findByUserId(id);
     if (!user) throw new ApiError(404, 'User not found');
+    return user;
+}
+
+export async function getUserById(actor: Actor, id: string) {
+    const user = await findUser(id);
+    // Someone limited to their own college is told "not found" for everyone else, so they cannot
+    // discover which other accounts exist
+    if (!actor.permissions.has(PERMISSIONS.USER_READ) && !isOwnStudent(actor, user)) throw new ApiError(404, 'User not found');
     return user;
 }
 
 // Finds the user someone wants to edit, and checks they may. Changing an account's email is enough to
 // take it over (ask for a password reset, read the code), so being able to edit users must not reach
 // further than being able to create them: without role:assign, only student accounts.
-async function findEditableUser(actorPermissions: Set<string>, id: string) {
-    const user = await getUserById(id);
-    const roleName = (user.role as { name?: string } | null)?.name;
-    if (roleName !== DEFAULT_ROLE && !actorPermissions.has(PERMISSIONS.ROLE_ASSIGN)) {
+async function findEditableUser(actor: Actor, id: string) {
+    const user = await findUser(id);
+    if (roleNameOf(user) !== DEFAULT_ROLE && !mayPlaceAnyone(actor)) {
         throw new ApiError(403, `You may only edit users with the "${DEFAULT_ROLE}" role`);
     }
     return user;
 }
 
-export async function updateUser(actorPermissions: Set<string>, id: string, input: UpdateProfileInput) {
-    const user = await findEditableUser(actorPermissions, id);
-    return authzService.updateProfile(user.id, input);
+// A picture is the one thing about an account that someone who can only create accounts may also set,
+// so that an account can be created complete. It reaches no further than their own college's students.
+async function findUserForPicture(actor: Actor, id: string) {
+    if (actor.permissions.has(PERMISSIONS.USER_UPDATE)) return findEditableUser(actor, id);
+
+    const user = await findUser(id);
+    if (!isOwnStudent(actor, user)) throw new ApiError(403, 'You may only set the picture of students in your own college');
+    return user;
 }
 
-export async function setUserAvatar(actorPermissions: Set<string>, id: string, file: Buffer) {
-    const user = await findEditableUser(actorPermissions, id);
+export async function updateUser(actor: Actor, id: string, { college, ...details }: UpdateUserInput) {
+    const user = await findEditableUser(actor, id);
+
+    // Which college someone belongs to decides who can see and manage them, so moving them is kept
+    // with assigning roles
+    if (college !== undefined && !mayPlaceAnyone(actor)) throw new ApiError(403, 'Moving a user to another college needs the role:assign permission');
+    const collegeDoc = college === undefined ? null : await findCollege(college);
+
+    const updated = await authzService.updateProfile(user.id, details);
+    return collegeDoc ? (await userRepository.setCollegeById(user.id, collegeDoc.id))! : updated;
+}
+
+export async function setUserAvatar(actor: Actor, id: string, file: Buffer) {
+    const user = await findUserForPicture(actor, id);
     return authzService.setAvatar(user, file);
 }
 
-export async function removeUserAvatar(actorPermissions: Set<string>, id: string) {
-    const user = await findEditableUser(actorPermissions, id);
+export async function removeUserAvatar(actor: Actor, id: string) {
+    const user = await findUserForPicture(actor, id);
     return authzService.removeAvatar(user.id, user.avatar);
 }
 
 export async function updateUserRole(actorId: string, id: string, roleName: string) {
-    // Stops an admin from demoting themselves and leaving the system with no admin
+    // Stops an admin from accidentally demoting themselves and losing access
     if (actorId === id) throw new ApiError(400, 'You cannot change your own role');
 
     const role = await findRoleByName(roleName);

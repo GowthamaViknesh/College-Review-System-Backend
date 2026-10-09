@@ -4,9 +4,13 @@ import app from '../src/app';
 import { Role } from '../src/models/role.model';
 import { User } from '../src/models/user.model';
 import { createUser } from './helpers/auth';
+import { createHomeCollege, inCollege } from './helpers/college';
 import { clearTestDb, closeTestDb, connectTestDb } from './helpers/db';
 
 beforeAll(connectTestDb);
+beforeEach(async () => {
+    await createHomeCollege();
+});
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
@@ -14,7 +18,7 @@ const validUser = { username: 'gowtham', email: 'gowtham@example.com', password:
 
 describe('POST /api/v1/auth/register', () => {
     it('creates a student by default and returns a token without the password', async () => {
-        const res = await request(app).post('/api/v1/auth/register').send(validUser);
+        const res = await request(app).post('/api/v1/auth/register').send(inCollege(validUser));
 
         expect(res.status).toBe(201);
         expect(res.body.success).toBe(true);
@@ -29,7 +33,7 @@ describe('POST /api/v1/auth/register', () => {
     it.each(['admin', 'teacher', 'student'])('refuses to let the person registering choose a role (%s)', async (role) => {
         const res = await request(app)
             .post('/api/v1/auth/register')
-            .send({ ...validUser, role });
+            .send(inCollege({ ...validUser, role }));
         expect(res.status).toBe(400);
         expect(res.body.errors[0]).toEqual({ field: 'role', message: 'A role cannot be chosen when registering' });
         expect(await User.countDocuments()).toBe(0);
@@ -37,38 +41,40 @@ describe('POST /api/v1/auth/register', () => {
 
     it('is unavailable if an admin has removed the default role', async () => {
         await Role.deleteOne({ name: 'student' });
-        const res = await request(app).post('/api/v1/auth/register').send(validUser);
+        const res = await request(app).post('/api/v1/auth/register').send(inCollege(validUser));
         expect(res.status).toBe(503);
     });
 
     it('returns field-level errors for invalid input', async () => {
-        const res = await request(app).post('/api/v1/auth/register').send({ username: 'ab', email: 'nope', password: '123' });
+        const res = await request(app)
+            .post('/api/v1/auth/register')
+            .send(inCollege({ username: 'ab', email: 'nope', password: '123' }));
         expect(res.status).toBe(400);
         expect(res.body.message).toBe('Validation failed');
         expect(res.body.errors.map((e: { field: string }) => e.field).sort()).toEqual(['email', 'password', 'username']);
     });
 
     it('rejects a duplicate email with 409', async () => {
-        await request(app).post('/api/v1/auth/register').send(validUser);
+        await request(app).post('/api/v1/auth/register').send(inCollege(validUser));
         const res = await request(app)
             .post('/api/v1/auth/register')
-            .send({ ...validUser, username: 'someoneelse', email: 'GOWTHAM@example.com' });
+            .send(inCollege({ ...validUser, username: 'someoneelse', email: 'GOWTHAM@example.com' }));
         expect(res.status).toBe(409);
         expect(res.body.message).toBe('email already exists');
     });
 
     it('rejects a duplicate username with 409', async () => {
-        await request(app).post('/api/v1/auth/register').send(validUser);
+        await request(app).post('/api/v1/auth/register').send(inCollege(validUser));
         const res = await request(app)
             .post('/api/v1/auth/register')
-            .send({ ...validUser, email: 'other@example.com' });
+            .send(inCollege({ ...validUser, email: 'other@example.com' }));
         expect(res.status).toBe(409);
         expect(res.body.message).toBe('username already exists');
     });
 });
 
 describe('POST /api/v1/auth/login', () => {
-    beforeEach(() => request(app).post('/api/v1/auth/register').send(validUser));
+    beforeEach(() => request(app).post('/api/v1/auth/register').send(inCollege(validUser)));
 
     it('logs in with correct credentials', async () => {
         const res = await request(app).post('/api/v1/auth/login').send({ email: validUser.email, password: validUser.password });
@@ -102,7 +108,7 @@ describe('GET /api/v1/auth/me', () => {
         expect(res.status).toBe(200);
         expect(res.body.data.user).toMatchObject({ email: user.email, role: { name: 'teacher' } });
         expect(res.body.data.user).not.toHaveProperty('password');
-        expect(res.body.data.permissions).toEqual(['college:create', 'college:update', 'user:create']);
+        expect(res.body.data.permissions).toEqual(['college:create', 'college:update', 'user:create', 'user:read:college']);
     });
 
     it('rejects a request with no token', async () => {

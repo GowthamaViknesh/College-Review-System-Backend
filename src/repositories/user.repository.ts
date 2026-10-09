@@ -6,16 +6,21 @@ import { escapeRegex } from '../common/utils/utils';
 import { IRole } from '../common/interfaces/role.interface';
 import { CreateUserInput, StoredImage, UpdateProfileInput, UserFilter } from '../common/interfaces/user.interface';
 
-// In API responses a user's role is shown as { _id, name } instead of a bare id
-const ROLE_NAME = { path: 'role', select: 'roleId name' };
+// In API responses a user's role and college are shown by public id and name instead of a bare database id
+const COLLEGE_NAME = { path: 'college', select: 'collegeId name' };
+const ROLE_NAME = [{ path: 'role', select: 'roleId name' }, COLLEGE_NAME];
 
-// For permission checks: the user's role together with the permissions it grants
-type WithAccess = { role: (Pick<IRole, 'roleId' | 'name' | 'permissions'> & { _id: Types.ObjectId }) | null };
-const ROLE_WITH_PERMISSIONS = { path: 'role', select: 'roleId name permissions' };
+// For permission checks: the user's role together with the permissions it grants, and their college
+type WithAccess = {
+    role: (Pick<IRole, 'roleId' | 'name' | 'permissions'> & { _id: Types.ObjectId }) | null;
+    college: { _id: Types.ObjectId; collegeId: string; name: string } | null;
+};
+const ROLE_WITH_PERMISSIONS = [{ path: 'role', select: 'roleId name permissions' }, COLLEGE_NAME];
 
-function buildFilter({ role, search }: UserFilter) {
+function buildFilter({ role, college, search }: UserFilter) {
     const filter: Record<string, unknown> = {};
     if (role) filter.role = role;
+    if (college) filter.college = college;
     if (search) {
         const pattern = new RegExp(escapeRegex(search), 'i');
         filter.$or = [{ username: pattern }, { email: pattern }];
@@ -40,6 +45,15 @@ export function count(filter: UserFilter) {
 
 export function countByRole(roleId: Types.ObjectId | string) {
     return User.countDocuments({ role: roleId });
+}
+
+export function countByCollege(college: string) {
+    return User.countDocuments({ college });
+}
+
+// college is MongoDB's id
+export function setCollegeById(id: string, college: string) {
+    return User.findByIdAndUpdate(id, { college }, { returnDocument: 'after', runValidators: true }).populate(ROLE_NAME);
 }
 
 // Functions named ...ByUserId take the public id, the one that arrives in a URL or a token.

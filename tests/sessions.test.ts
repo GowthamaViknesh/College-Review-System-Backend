@@ -5,9 +5,13 @@ import { ActionLog } from '../src/models/action-log.model';
 import { RefreshToken } from '../src/models/refresh-token.model';
 import { flushActionLogs } from '../src/services/action-log.service';
 import { createUser } from './helpers/auth';
+import { createHomeCollege, inCollege } from './helpers/college';
 import { clearTestDb, closeTestDb, connectTestDb } from './helpers/db';
 
 beforeAll(connectTestDb);
+beforeEach(async () => {
+    await createHomeCollege();
+});
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
@@ -29,7 +33,9 @@ describe('logging in and registering', () => {
     it('return an access token and a refresh token', async () => {
         const { user } = await createUser('student');
         const res = await login(user.email);
-        const registered = await request(app).post('/api/v1/auth/register').send({ username: 'newcomer', email: 'newcomer@example.com', password: 'password123' });
+        const registered = await request(app)
+            .post('/api/v1/auth/register')
+            .send(inCollege({ username: 'newcomer', email: 'newcomer@example.com', password: 'password123' }));
 
         for (const body of [res.body, registered.body]) {
             expect(body.data.token.split('.')).toHaveLength(3);

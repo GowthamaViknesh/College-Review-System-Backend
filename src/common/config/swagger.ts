@@ -67,6 +67,12 @@ const definition = {
                     username: { type: 'string', example: 'gowtham' },
                     email: { type: 'string', format: 'email', example: 'gowtham@example.com' },
                     role: { $ref: '#/components/schemas/RoleSummary' },
+                    college: {
+                        type: 'object',
+                        nullable: true,
+                        description: 'The college they belong to. Every teacher and student has one; administrators do not.',
+                        properties: { collegeId: { type: 'string', example: 'h3Fq8ZsN1yUd6RoE' }, name: { type: 'string', example: 'Anna University' } },
+                    },
                     lastActiveAt: {
                         type: 'string',
                         format: 'date-time',
@@ -281,11 +287,12 @@ const definition = {
             },
             RegisterRequest: {
                 type: 'object',
-                required: ['username', 'email', 'password'],
+                required: ['username', 'email', 'password', 'college'],
                 properties: {
                     username: { type: 'string', minLength: 3, maxLength: 30, example: 'gowtham' },
                     email: { type: 'string', format: 'email', example: 'gowtham@example.com' },
                     password: { type: 'string', minLength: 8, maxLength: 72, example: 'Password@123' },
+                    college: { type: 'string', example: 'h3Fq8ZsN1yUd6RoE', description: 'collegeId of the college you attend (from GET /colleges)' },
                 },
             },
             UpdateProfileRequest: {
@@ -313,15 +320,19 @@ const definition = {
                 },
             },
             CreateUserRequest: {
-                allOf: [
-                    { $ref: '#/components/schemas/RegisterRequest' },
-                    {
-                        type: 'object',
-                        properties: {
-                            role: { type: 'string', default: 'student', example: 'teacher', description: 'Name of an existing role' },
-                        },
+                type: 'object',
+                required: ['username', 'email', 'password'],
+                properties: {
+                    username: { type: 'string', minLength: 3, maxLength: 30, example: 'gowtham' },
+                    email: { type: 'string', format: 'email', example: 'gowtham@example.com' },
+                    password: { type: 'string', minLength: 8, maxLength: 72, example: 'Password@123' },
+                    role: { type: 'string', default: 'student', example: 'teacher', description: 'Name of an existing role' },
+                    college: {
+                        type: 'string',
+                        example: 'h3Fq8ZsN1yUd6RoE',
+                        description: 'collegeId. With role:assign it is required for every role except admin. Without it, leave it out: the account joins your own college.',
                     },
-                ],
+                },
             },
             AssignRoleRequest: {
                 type: 'object',
