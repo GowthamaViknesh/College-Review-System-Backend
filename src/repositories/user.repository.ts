@@ -3,7 +3,7 @@ import type { Types } from 'mongoose';
 import { User } from '../models/user.model';
 import { escapeRegex } from '../common/utils/utils';
 import { IRole } from '../common/interfaces/role.interface';
-import { CreateUserInput, UpdateProfileInput, UserFilter } from '../common/interfaces/user.interface';
+import { CreateUserInput, StoredImage, UpdateProfileInput, UserFilter } from '../common/interfaces/user.interface';
 
 // In API responses a user's role is shown as { _id, name } instead of a bare id
 const ROLE_NAME = { path: 'role', select: 'name' };
@@ -67,6 +67,10 @@ export function findByIdWithPassword(id: string) {
 
 export function updateProfileById(id: string, fields: UpdateProfileInput) {
     return User.findByIdAndUpdate(id, fields, { returnDocument: 'after', runValidators: true }).populate(ROLE_NAME);
+}
+
+export function setAvatarById(id: string, avatar: StoredImage | null) {
+    return User.findByIdAndUpdate(id, { avatar }, { returnDocument: 'after' }).populate(ROLE_NAME);
 }
 
 export function findByEmailWithPassword(email: string) {

@@ -3,6 +3,7 @@ import { Types, type PipelineStage } from 'mongoose';
 import { College } from '../models/college.model';
 import { Review } from '../models/review.model';
 import { escapeRegex } from '../common/utils/utils';
+import { StoredImage } from '../common/interfaces/user.interface';
 import { CollegeFilter, CollegeInput, CollegeSort, CollegeWithStats, SortOrder } from '../common/interfaces/college.interface';
 
 // Adds averageRating and reviewCount to each college by reading its reviews.
@@ -27,6 +28,8 @@ const WITH_REVIEW_STATS: PipelineStage[] = [
             // No reviews -> no stats row -> every step passes null along, so averageRating is null, not a misleading 0.
             averageRating: { $divide: [{ $floor: { $add: [{ $multiply: [{ $first: '$stats.averageRating' }, 10] }, 0.5] } }, 10] },
             reviewCount: { $ifNull: [{ $first: '$stats.reviewCount' }, 0] },
+            // Clients get the picture's address only, never the id it is stored under
+            image: { $ifNull: ['$image.url', null] },
         },
     },
     { $project: { stats: 0, __v: 0 } },
@@ -95,6 +98,14 @@ export async function findPageWithStats(filter: CollegeFilter, { sort, order }: 
 export async function findByIdWithStats(id: string): Promise<CollegeWithStats | null> {
     const [college] = await College.aggregate<CollegeWithStats>([{ $match: { _id: new Types.ObjectId(id) } }, ...WITH_REVIEW_STATS]);
     return college ?? null;
+}
+
+export function findById(id: string) {
+    return College.findById(id);
+}
+
+export function setImageById(id: string, image: StoredImage | null) {
+    return College.findByIdAndUpdate(id, { image });
 }
 
 export function existsById(id: string) {

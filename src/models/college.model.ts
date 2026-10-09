@@ -1,6 +1,7 @@
 import { Schema, model, type HydratedDocument } from 'mongoose';
 
 import { ICollege } from '../common/interfaces/college.interface';
+import { StoredImage } from '../common/interfaces/user.interface';
 
 export type CollegeDocument = HydratedDocument<ICollege>;
 
@@ -29,6 +30,10 @@ const collegeSchema = new Schema<ICollege>(
             default: '',
             trim: true,
         },
+        image: {
+            type: new Schema<StoredImage>({ url: { type: String, required: true }, publicId: { type: String, required: true } }, { _id: false }),
+            default: null,
+        },
         createdBy: {
             type: Schema.Types.ObjectId,
             ref: 'User',
@@ -39,8 +44,8 @@ const collegeSchema = new Schema<ICollege>(
         timestamps: true,
         toJSON: {
             transform: (_doc, ret) => {
-                const { __v, ...college } = ret;
-                return college;
+                const { __v, image, ...college } = ret;
+                return { ...college, image: image?.url ?? null };
             },
         },
     },

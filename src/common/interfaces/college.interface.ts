@@ -1,18 +1,24 @@
 import type { Types } from 'mongoose';
 
+import type { StoredImage } from './user.interface';
+
 export interface ICollege {
     name: string;
     city: string;
     state: string;
     description: string;
+    // Picture of the college; null until someone uploads one
+    image: StoredImage | null;
     createdBy: Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }
 
 // A college together with the figures calculated from its reviews
-export interface CollegeWithStats extends ICollege {
+export interface CollegeWithStats extends Omit<ICollege, 'image'> {
     _id: Types.ObjectId;
+    // Just the address: the storage id is of no use to a client
+    image: string | null;
     // null when the college has no reviews yet (0 would look like a terrible score)
     averageRating: number | null;
     reviewCount: number;

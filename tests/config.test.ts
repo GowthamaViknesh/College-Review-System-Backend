@@ -39,6 +39,26 @@ describe('startup configuration', () => {
         expect(loadEnv).toThrow('Missing required environment variable: JWT_EXPIRES_IN');
     });
 
+    it('treats image storage as optional, but refuses to start with only some of its settings', () => {
+        const loaded = () => {
+            let env: { cloudinary: unknown } | undefined;
+            jest.isolateModules(() => {
+                jest.doMock('dotenv', () => ({ config: () => ({}) }));
+                env = require('../src/common/config/env').env;
+            });
+            return env!.cloudinary;
+        };
+
+        expect(loaded()).toBeNull();
+
+        process.env.CLOUDINARY_API_KEY = '123456789012345';
+        expect(loaded).toThrow('Missing: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_SECRET');
+
+        process.env.CLOUDINARY_CLOUD_NAME = 'demo';
+        process.env.CLOUDINARY_API_SECRET = 'a-secret';
+        expect(loaded()).toEqual({ cloudName: 'demo', apiKey: '123456789012345', apiSecret: 'a-secret' });
+    });
+
     it.each(['short-secret', 'change_me_to_a_long_random_string_of_at_least_32_chars'])('refuses a weak signing secret in production: %s', (secret) => {
         process.env.NODE_ENV = 'production';
         process.env.JWT_SECRET = secret;

@@ -64,6 +64,19 @@ function keepAlive(): { url: string; intervalSeconds: number } | null {
     return { url, intervalSeconds };
 }
 
+// Where uploaded pictures are stored. Optional: without it the API runs normally and only the upload
+// endpoints answer "not set up". The three values come as a set, so having some but not all is a mistake
+// worth stopping for at startup rather than discovering on the first upload.
+function cloudinary(): { cloudName: string; apiKey: string; apiSecret: string } | null {
+    const names = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+    const [cloudName, apiKey, apiSecret] = names.map((name) => (process.env[name] || '').trim());
+    const missing = names.filter((name) => !(process.env[name] || '').trim());
+
+    if (missing.length === names.length) return null;
+    if (missing.length) throw new Error(`Picture uploads need all of ${names.join(', ')}. Missing: ${missing.join(', ')}`);
+    return { cloudName, apiKey, apiSecret };
+}
+
 export const env = {
     nodeEnv: process.env.NODE_ENV,
     port: port(),
@@ -74,6 +87,7 @@ export const env = {
     corsOrigin: corsOrigins(),
     trustProxy: trustProxy(),
     keepAlive: keepAlive(),
+    cloudinary: cloudinary(),
     actionLogRetentionDays: Number(process.env.ACTION_LOG_RETENTION_DAYS) || 90,
     isTest: process.env.NODE_ENV === 'test',
 };

@@ -4,7 +4,7 @@ import { ReviewFilter, ReviewSort, UpdateReviewInput } from '../common/interface
 
 // In API responses a review shows who wrote it and which college it is about, not just their ids
 const AUTHOR_AND_COLLEGE = [
-    { path: 'user', select: 'username' },
+    { path: 'user', select: 'username avatar' },
     { path: 'college', select: 'name' },
 ];
 

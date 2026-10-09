@@ -29,6 +29,20 @@ export const updateCollege: RequestHandler<{ id: string }> = async (req, res) =>
     res.json({ success: true, data: { college } });
 };
 
+export const uploadCollegeImage: RequestHandler<{ id: string }> = async (req, res) => {
+    setAudit(res, { details: { changed: ['image'] } });
+
+    const college = await collegeService.setCollegeImage(req.params.id, req.file!.buffer);
+    res.json({ success: true, data: { college } });
+};
+
+export const removeCollegeImage: RequestHandler<{ id: string }> = async (req, res) => {
+    setAudit(res, { details: { changed: ['image'] } });
+
+    const college = await collegeService.removeCollegeImage(req.params.id);
+    res.json({ success: true, data: { college } });
+};
+
 export const deleteCollege: RequestHandler<{ id: string }> = async (req, res) => {
     await collegeService.deleteCollege(req.params.id);
     res.status(204).send();

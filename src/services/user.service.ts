@@ -4,6 +4,7 @@ import * as reviewRepository from '../repositories/review.repository';
 import { DEFAULT_ROLE } from '../common/constants/roles';
 import { PERMISSIONS } from '../common/constants/permissions';
 import { ApiError, paginationMeta, validationError } from '../common/utils/utils';
+import { deleteImage } from '../common/utils/image-storage';
 import { CreateUserRequest, ListUsersQuery, RegisterInput } from '../common/interfaces/user.interface';
 
 // The API refers to roles by name; the database stores them by id
@@ -67,4 +68,5 @@ export async function deleteUser(actorId: string, id: string) {
 
     // A removed account should not keep influencing college ratings
     await reviewRepository.deleteByUser(id);
+    if (user.avatar) await deleteImage(user.avatar.publicId);
 }

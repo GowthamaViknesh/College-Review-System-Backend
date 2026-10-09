@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 
-import { IUser, IUserMethods } from '../common/interfaces/user.interface';
+import { IUser, IUserMethods, StoredImage } from '../common/interfaces/user.interface';
 
 type UserModel = Model<IUser, {}, IUserMethods>;
 export type UserDocument = HydratedDocument<IUser, IUserMethods>;
@@ -34,13 +34,18 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
             required: [true, 'Role is required'],
             index: true,
         },
+        avatar: {
+            type: new Schema<StoredImage>({ url: { type: String, required: true }, publicId: { type: String, required: true } }, { _id: false }),
+            default: null,
+        },
     },
     {
         timestamps: true,
         toJSON: {
             transform: (_doc, ret) => {
-                const { password, __v, ...user } = ret;
-                return user;
+                const { password, __v, avatar, ...user } = ret;
+                // Clients get the picture's address only, never the id it is stored under
+                return { ...user, avatar: avatar?.url ?? null };
             },
         },
     },

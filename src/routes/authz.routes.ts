@@ -4,6 +4,7 @@ import { env } from '../common/config/env';
 import { ACTIONS } from '../common/constants/actions';
 import { audit } from '../common/middlewares/audit.middleware';
 import { protect } from '../common/middlewares/auth.middleware';
+import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { validate } from '../common/middlewares/validate.middleware';
 import { changePasswordSchema, loginSchema, registerSchema, updateProfileSchema } from '../common/validators/user.validator';
 import * as authzController from '../controllers/authz.controller';
@@ -151,6 +152,78 @@ router.get('/me', protect, authzController.me);
  *         $ref: '#/components/responses/Conflict'
  */
 router.patch('/me', audit(ACTIONS.PROFILE_UPDATE, 'user'), protect, validate({ body: updateProfileSchema }), authzController.updateMe);
+
+/**
+ * @openapi
+ * /auth/me/avatar:
+ *   put:
+ *     tags: [Auth]
+ *     summary: Upload or replace your profile picture
+ *     description: >
+ *       Any logged-in user. Send the picture as a multipart form. It is cropped to a square and stored with the
+ *       image storage service; the account's `avatar` field is the address to show it from. Uploading again replaces it.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Your picture. JPG, PNG or WebP, 5 MB at most.
+ *     responses:
+ *       200:
+ *         description: Your account, with the new `avatar` address
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
+ *       400:
+ *         description: No file was sent, it is larger than 5 MB, or it is not a JPG, PNG or WebP picture
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               success: false
+ *               message: Validation failed
+ *               errors: [{ field: image, message: 'The picture must be 5 MB or smaller' }]
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         description: More than 30 uploads from this IP in 15 minutes
+ *       502:
+ *         description: The image storage service could not store the picture
+ *       503:
+ *         description: Picture uploads are not set up on this server (the CLOUDINARY_* settings are missing)
+ */
+router.put('/me/avatar', audit(ACTIONS.PROFILE_UPDATE, 'user'), protect, uploadLimiter, imageUpload, authzController.uploadMyAvatar);
+
+/**
+ * @openapi
+ * /auth/me/avatar:
+ *   delete:
+ *     tags: [Auth]
+ *     summary: Remove your profile picture
+ *     description: Any logged-in user. Succeeds whether or not there was a picture.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Your account, with `avatar` now null
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
+router.delete('/me/avatar', audit(ACTIONS.PROFILE_UPDATE, 'user'), protect, authzController.removeMyAvatar);
 
 /**
  * @openapi

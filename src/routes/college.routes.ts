@@ -5,6 +5,7 @@ import { ACTIONS } from '../common/constants/actions';
 import { audit } from '../common/middlewares/audit.middleware';
 import * as collegeController from '../controllers/college.controller';
 import { validate } from '../common/middlewares/validate.middleware';
+import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { idParamSchema } from '../common/validators/user.validator';
 import { protect, requirePermission } from '../common/middlewares/auth.middleware';
 import { createCollegeSchema, listCollegesQuerySchema, updateCollegeSchema } from '../common/validators/college.validator';
@@ -179,6 +180,108 @@ router.patch(
     requirePermission(PERMISSIONS.COLLEGE_UPDATE),
     validate({ params: idParamSchema, body: updateCollegeSchema }),
     collegeController.updateCollege,
+);
+
+/**
+ * @openapi
+ * /colleges/{id}/image:
+ *   put:
+ *     tags: [Colleges]
+ *     summary: Upload or replace a college's picture
+ *     description: >
+ *       Requires `college:update`. Send the picture as a multipart form. It is stored with the image storage
+ *       service; the college's `image` field is the address to show it from. Uploading again replaces it.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IdParam'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: The picture of the college. JPG, PNG or WebP, 5 MB at most.
+ *     responses:
+ *       200:
+ *         description: The college, with the new `image` address
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CollegeResponse'
+ *       400:
+ *         description: No file was sent, it is larger than 5 MB, or it is not a JPG, PNG or WebP picture
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               success: false
+ *               message: Validation failed
+ *               errors: [{ field: image, message: 'The picture must be 5 MB or smaller' }]
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       429:
+ *         description: More than 30 uploads from this IP in 15 minutes
+ *       502:
+ *         description: The image storage service could not store the picture
+ *       503:
+ *         description: Picture uploads are not set up on this server (the CLOUDINARY_* settings are missing)
+ */
+router.put(
+    '/:id/image',
+    audit(ACTIONS.COLLEGE_UPDATE, 'college'),
+    protect,
+    requirePermission(PERMISSIONS.COLLEGE_UPDATE),
+    validate({ params: idParamSchema }),
+    uploadLimiter,
+    imageUpload,
+    collegeController.uploadCollegeImage,
+);
+
+/**
+ * @openapi
+ * /colleges/{id}/image:
+ *   delete:
+ *     tags: [Colleges]
+ *     summary: Remove a college's picture
+ *     description: Requires `college:update`. Succeeds whether or not there was a picture.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IdParam'
+ *     responses:
+ *       200:
+ *         description: The college, with `image` now null
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CollegeResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.delete(
+    '/:id/image',
+    audit(ACTIONS.COLLEGE_UPDATE, 'college'),
+    protect,
+    requirePermission(PERMISSIONS.COLLEGE_UPDATE),
+    validate({ params: idParamSchema }),
+    collegeController.removeCollegeImage,
 );
 
 /**

@@ -37,7 +37,8 @@ This API was built as a small production-style service. It is ready to run for a
 - Graceful shutdown: on SIGTERM the server stops accepting connections, finishes writing pending log entries, then closes the database connection.
 - A multi-stage Dockerfile that runs the compiled code as a non-root user with only runtime dependencies, and a Compose file for local use.
 - A CI workflow that checks formatting, types, tests and the build on every push.
-- 192 tests with 98.9% line coverage.
+- Picture uploads that never touch the server's disk: files are type- and size-checked, resized and stored with Cloudinary, and removed when their owner is deleted.
+- 222 tests.
 
 ## Known limitations
 
@@ -53,6 +54,7 @@ These are deliberate simplifications for the scope of the exercise. Each is safe
 | **Search uses a case-insensitive "contains" match.** | It cannot use an index, so it scans the collection. | A MongoDB text index or Atlas Search. |
 | **Pagination uses skip and limit.** | Deep pages get slower, and items can shift between pages while data changes. | Cursor-based pagination for large lists. |
 | **Deleting a college or user and their reviews is two separate operations.** | A crash between them could leave reviews with no college or author. | Wrap them in a MongoDB transaction (needs a replica set). |
+| **A picture is held in memory while it is passed to image storage.** | Up to 5 MB per upload in progress; many at once could exhaust a small instance. The per-IP upload limit bounds this. | Let the browser upload straight to Cloudinary with a signature issued by the API. |
 | **Action log entries are written after the response is sent.** | A crash at that instant loses the entry. | Write the entry before responding for the most sensitive actions, or send entries through a durable queue. |
 
 ## Before going live

@@ -24,6 +24,20 @@ export const updateMe: RequestHandler = async (req, res) => {
     res.json({ success: true, data: { user } });
 };
 
+export const uploadMyAvatar: RequestHandler = async (req, res) => {
+    setAudit(res, { targetId: req.user!.id, details: { changed: ['avatar'] } });
+
+    const user = await authzService.setAvatar(req.user!.id, req.file!.buffer);
+    res.json({ success: true, data: { user } });
+};
+
+export const removeMyAvatar: RequestHandler = async (req, res) => {
+    setAudit(res, { targetId: req.user!.id, details: { changed: ['avatar'] } });
+
+    const user = await authzService.removeAvatar(req.user!.id, req.user!.avatar);
+    res.json({ success: true, data: { user } });
+};
+
 export const changeMyPassword: RequestHandler = async (req, res) => {
     setAudit(res, { targetId: req.user!.id });
 

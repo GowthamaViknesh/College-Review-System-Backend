@@ -104,6 +104,7 @@ All settings come from environment variables, read from `.env`. The server stops
 | `ACTION_LOG_RETENTION_DAYS` | No | `90` | How long action log entries are kept |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | No | `admin`, `admin@example.com`, `Password@123` | The admin created by `npm run seed` |
 | `SEED_DEMO_PASSWORD` | No | `Password@123` | Password of the accounts created by `npm run seed:demo` |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | No | — | Where uploaded pictures are stored (from the Cloudinary dashboard, under "API Keys"). Set all three or none. Without them only the upload endpoints are unavailable (503); with only some, the server refuses to start. |
 | `KEEP_ALIVE_URL` | No | Render's own address when deployed there | The service's public address. When known, the server requests its own `/health` page on a timer so a free hosting plan does not put it to sleep. |
 | `KEEP_ALIVE_INTERVAL_SECONDS` | No | `600` | Seconds between keep-alive requests. `0` turns it off. |
 | `MONGO_PORT` | No | `27017` | The port on your machine that the Docker MongoDB is published on |
@@ -132,6 +133,8 @@ Every path is under `/api/v1`. Responses have one shape:
 | `GET /auth/me` | Logged in | The current user and the permissions their role grants |
 | `PATCH /auth/me` | Logged in | Change your own username or email |
 | `PATCH /auth/me/password` | Logged in | Change your own password (needs the current one) |
+| `PUT /auth/me/avatar` | Logged in | Upload or replace your profile picture (multipart form, field `image`) |
+| `DELETE /auth/me/avatar` | Logged in | Remove your profile picture |
 
 ### Colleges
 
@@ -141,7 +144,9 @@ Every path is under `/api/v1`. Responses have one shape:
 | `GET /colleges/:id` | Public | One college with its rating figures |
 | `POST /colleges` | `college:create` | Add a college |
 | `PATCH /colleges/:id` | `college:update` | Edit a college |
-| `DELETE /colleges/:id` | `college:delete` | Delete a college and all its reviews |
+| `DELETE /colleges/:id` | `college:delete` | Delete a college, all its reviews and its picture |
+| `PUT /colleges/:id/image` | `college:update` | Upload or replace the college's picture (multipart form, field `image`) |
+| `DELETE /colleges/:id/image` | `college:update` | Remove the college's picture |
 
 ### Reviews
 
@@ -208,6 +213,18 @@ Every change made through the API is recorded: who did it, what they did, to wha
 
 Entries cannot be edited or deleted through the API, never contain passwords or tokens, and are removed automatically after `ACTION_LOG_RETENTION_DAYS`.
 
+## Pictures
+
+Users can have a profile picture and colleges a picture. The files are stored with [Cloudinary](https://cloudinary.com), not on the server, because a host like Render wipes its disk on every deploy. The database keeps only the address, which the API returns as `avatar` on a user and `image` on a college (`null` when there is none).
+
+- **Accepted:** JPG, PNG or WebP, up to 5 MB, one file in a multipart form field named `image`. The file's first bytes are checked, not just the type the client claims, and Cloudinary checks the contents again.
+- **Resized on the way in:** profile pictures are cropped to a 400px square, college pictures are limited to 1600×1000. The original is not kept.
+- **One picture per owner:** uploading again overwrites the previous file, and deleting a user or college deletes its picture, so nothing is left behind in storage.
+- **Optional:** without the `CLOUDINARY_*` settings the rest of the API works as usual and the upload endpoints answer 503.
+- Uploads are limited to 30 per IP address every 15 minutes, and are recorded in the action log as `profile:update` or `college:update`.
+
+`src/common/utils/image-storage.ts` is the only file that knows about Cloudinary; the tests replace it with a stand-in, so they need no account and no network.
+
 ## Assumptions
 
 The brief names three roles but not what each may do, and leaves a few other things open. These are the choices made:
@@ -222,7 +239,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 192 tests in 13 files
+npm test                 # 222 tests in 15 files
 npm run test:coverage
 ```
 

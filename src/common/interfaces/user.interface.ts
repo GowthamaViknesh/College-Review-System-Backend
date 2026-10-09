@@ -1,10 +1,18 @@
 import type { Types } from 'mongoose';
 
+// A picture kept in image storage: the address to show it, and the id needed to delete it later
+export interface StoredImage {
+    url: string;
+    publicId: string;
+}
+
 export interface IUser {
     username: string;
     email: string;
     password: string;
     role: Types.ObjectId;
+    // Profile picture; null until the user uploads one
+    avatar: StoredImage | null;
     createdAt: Date;
     updatedAt: Date;
 }
