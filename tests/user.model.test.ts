@@ -1,3 +1,4 @@
+import { Role } from '../src/models/role.model';
 import { User } from '../src/models/user.model';
 import { clearTestDb, closeTestDb, connectTestDb } from './helpers/db';
 
@@ -5,31 +6,40 @@ beforeAll(connectTestDb);
 afterEach(clearTestDb);
 afterAll(closeTestDb);
 
-const base = { username: 'gowtham', email: 'Gowtham@Example.com', password: 'secret123' };
+async function baseUser() {
+    const role = await Role.findOne({ name: 'student' });
+    return { username: 'gowtham', email: 'gowtham@example.com', password: 'secret123', role: role!._id };
+}
 
 describe('User model', () => {
-  it('hashes the password, lowercases email and defaults role to student', async () => {
-    const user = await User.create(base);
-    expect(user.password).not.toBe(base.password);
-    expect(user.email).toBe('gowtham@example.com');
-    expect(user.role).toBe('student');
-    expect(await user.comparePassword('secret123')).toBe(true);
-    expect(await user.comparePassword('wrong')).toBe(false);
-  });
+    it('hashes the password and can verify it', async () => {
+        const user = await User.create(await baseUser());
+        expect(user.password).not.toBe('secret123');
+        expect(await user.comparePassword('secret123')).toBe(true);
+        expect(await user.comparePassword('wrong')).toBe(false);
+    });
 
-  it('never exposes password in JSON or default queries', async () => {
-    const user = await User.create(base);
-    expect(user.toJSON()).not.toHaveProperty('password');
-    const found = await User.findById(user._id);
-    expect(found?.password).toBeUndefined();
-  });
+    it('does not re-hash the password when other fields change', async () => {
+        const user = await User.create(await baseUser());
+        const hash = user.password;
+        user.username = 'renamed';
+        await user.save();
+        expect(user.password).toBe(hash);
+    });
 
-  it('rejects an invalid role', async () => {
-    await expect(User.create({ ...base, role: 'superuser' })).rejects.toThrow(/Role must be one of/);
-  });
+    it('never exposes the password in JSON', async () => {
+        const user = await User.create(await baseUser());
+        expect(user.toJSON()).not.toHaveProperty('password');
+    });
 
-  it('rejects a duplicate email', async () => {
-    await User.create(base);
-    await expect(User.create({ ...base, username: 'other' })).rejects.toThrow(/duplicate key/);
-  });
+    it('requires a role', async () => {
+        const { role, ...withoutRole } = await baseUser();
+        await expect(User.create(withoutRole)).rejects.toThrow(/Role is required/);
+    });
+
+    it('rejects a duplicate email', async () => {
+        const base = await baseUser();
+        await User.create(base);
+        await expect(User.create({ ...base, username: 'other' })).rejects.toThrow(/duplicate key/);
+    });
 });

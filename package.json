@@ -9,7 +9,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx scripts/seed.ts",
-    "test:coverage": "jest --runInBand --coverage"
+    "test:coverage": "jest --runInBand --coverage",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
   },
   "keywords": [],
   "author": "Gowthama Viknesh K",
@@ -26,10 +28,12 @@
     "mongoose": "^9.11.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
+    "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",

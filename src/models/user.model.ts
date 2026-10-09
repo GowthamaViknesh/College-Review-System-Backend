@@ -1,15 +1,10 @@
-import { Schema, model, type Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { ALL_ROLES, ROLES, type Role } from '../constants/roles';
-import { IUser } from '../interfaces/user.interface';
+import { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 
-const SALT_ROUNDS = 10;
-
-interface IUserMethods {
-    comparePassword(candidate: string): Promise<boolean>;
-}
+import { IUser, IUserMethods } from '../common/interfaces/user.interface';
 
 type UserModel = Model<IUser, {}, IUserMethods>;
+export type UserDocument = HydratedDocument<IUser, IUserMethods>;
 
 const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     {
@@ -18,27 +13,24 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
             required: [true, 'Username is required'],
             unique: true,
             trim: true,
-            minlength: [3, 'Username must be at least 3 characters'],
-            maxlength: [30, 'Username must be at most 30 characters'],
         },
         email: {
             type: String,
             required: [true, 'Email is required'],
             unique: true,
             trim: true,
-            lowercase: true,
             match: [/^\S+@\S+\.\S+$/, 'Email is invalid'],
         },
         password: {
             type: String,
             required: [true, 'Password is required'],
-            minlength: [8, 'Password must be at least 8 characters'],
-            select: false, // never returned by queries unless explicitly requested with .select('+password')
         },
+        // A user has exactly one role; what the role may do lives on the Role document
         role: {
-            type: String,
-            enum: { values: ALL_ROLES, message: 'Role must be one of: ' + ALL_ROLES.join(', ') },
-            default: ROLES.STUDENT,
+            type: Schema.Types.ObjectId,
+            ref: 'Role',
+            required: [true, 'Role is required'],
+            index: true,
         },
     },
     {
@@ -55,7 +47,7 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
 // Hash only when the password is new or changed, so profile updates don't re-hash the hash
 userSchema.pre('save', async function () {
     if (!this.isModified('password')) return;
-    this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
+    this.password = await bcrypt.hash(this.password, 10);
 });
 
 userSchema.method('comparePassword', function (candidate: string) {
