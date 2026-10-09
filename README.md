@@ -104,6 +104,8 @@ All settings come from environment variables, read from `.env`. The server stops
 | `ACTION_LOG_RETENTION_DAYS` | No | `90` | How long action log entries are kept |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | No | `admin`, `admin@example.com`, `Password@123` | The admin created by `npm run seed` |
 | `SEED_DEMO_PASSWORD` | No | `Password@123` | Password of the accounts created by `npm run seed:demo` |
+| `KEEP_ALIVE_URL` | No | Render's own address when deployed there | The service's public address. When known, the server requests its own `/health` page on a timer so a free hosting plan does not put it to sleep. |
+| `KEEP_ALIVE_INTERVAL_SECONDS` | No | `600` | Seconds between keep-alive requests. `0` turns it off. |
 | `MONGO_PORT` | No | `27017` | The port on your machine that the Docker MongoDB is published on |
 | `DNS_SERVERS` | No | — | Only for Atlas connection problems behind some VPNs; see `.env.example` |
 
@@ -220,7 +222,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 182 tests in 12 files
+npm test                 # 192 tests in 13 files
 npm run test:coverage
 ```
 

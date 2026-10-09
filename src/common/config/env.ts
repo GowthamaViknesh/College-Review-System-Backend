@@ -49,6 +49,21 @@ function trustProxy(): number | boolean | string {
     return /^\d+$/.test(value) ? Number(value) : value;
 }
 
+// Whether, and how often, the server should request its own public /health page to stay awake on a
+// hosting plan that sleeps idle services. It needs a public address: KEEP_ALIVE_URL if set, otherwise
+// the one Render provides to every web service. With neither (as on a laptop) it stays off.
+function keepAlive(): { url: string; intervalSeconds: number } | null {
+    const url = (process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL || '').trim();
+    const raw = process.env.KEEP_ALIVE_INTERVAL_SECONDS;
+    // Render sleeps a free service after 15 minutes without requests, so every 10 minutes is enough
+    const intervalSeconds = raw === undefined || raw.trim() === '' ? 600 : Number(raw);
+
+    if (!Number.isFinite(intervalSeconds) || intervalSeconds < 0) throw new Error('KEEP_ALIVE_INTERVAL_SECONDS must be a number of seconds, or 0 to turn keep-alive off');
+    if (!url || intervalSeconds === 0) return null;
+    if (!/^https?:\/\//.test(url)) throw new Error('KEEP_ALIVE_URL must start with http:// or https://');
+    return { url, intervalSeconds };
+}
+
 export const env = {
     nodeEnv: process.env.NODE_ENV,
     port: port(),
@@ -58,6 +73,7 @@ export const env = {
     jwtExpiresIn: required('JWT_EXPIRES_IN'),
     corsOrigin: corsOrigins(),
     trustProxy: trustProxy(),
+    keepAlive: keepAlive(),
     actionLogRetentionDays: Number(process.env.ACTION_LOG_RETENTION_DAYS) || 90,
     isTest: process.env.NODE_ENV === 'test',
 };

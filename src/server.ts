@@ -3,6 +3,7 @@ import { env } from './common/config/env';
 import logger from './common/config/logger';
 import { connectDatabase, disconnectDatabase } from './common/config/db';
 import { flushActionLogs } from './services/action-log.service';
+import { startKeepAlive } from './common/utils/keep-alive';
 
 const PORT = env.port;
 
@@ -11,8 +12,12 @@ async function start() {
 
     const server = app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
 
+    // Only on a host that gives the service a public address; off when running locally
+    const stopKeepAlive = env.keepAlive ? startKeepAlive(env.keepAlive) : () => {};
+
     const shutdown = (signal: string) => {
         logger.info(`${signal} received, shutting down gracefully`);
+        stopKeepAlive();
         server.close(() => {
             // Let action log entries that are still being written finish before the connection closes
             flushActionLogs()

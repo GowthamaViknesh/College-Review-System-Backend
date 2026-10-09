@@ -30,13 +30,14 @@ This API was built as a small production-style service. It is ready to run for a
 - Structured JSON logs (pino) in production, one line per request, with no headers or tokens in them.
 - An append-only action log records every change, every refused attempt and every failed login, and expires entries automatically.
 - `GET /health` for load balancers and container health checks.
+- A keep-alive timer for hosting plans that sleep idle services: the server requests its own public `/health` page every 10 minutes (configurable, and off when no public address is known). Health-check requests are left out of the request log.
 - A `TRUST_PROXY` setting, so that behind a load balancer the visitor's real IP address is used for rate limiting and the action log rather than the proxy's.
 - `CORS_ORIGIN` accepts a list, so the deployed frontend and local development can both be allowed without opening the API to every site.
 - A Render blueprint (`render.yaml`) for one-step deployment.
 - Graceful shutdown: on SIGTERM the server stops accepting connections, finishes writing pending log entries, then closes the database connection.
 - A multi-stage Dockerfile that runs the compiled code as a non-root user with only runtime dependencies, and a Compose file for local use.
 - A CI workflow that checks formatting, types, tests and the build on every push.
-- 182 integration tests with 98.9% line coverage.
+- 192 tests with 98.9% line coverage.
 
 ## Known limitations
 

@@ -12,6 +12,10 @@ import { errorHandler, notFound } from './common/middlewares/error.middleware';
 
 const app = express();
 
+// The address as the visitor asked for it. Express shortens req.url as a request passes through nested
+// routers (/api/v1/colleges becomes /), so the log would otherwise show the same "/" for most requests.
+const fullPath = (req: { url?: string; originalUrl?: string }) => req.originalUrl ?? req.url;
+
 // Must come before anything that looks at the visitor's address (rate limiting, the action log)
 app.set('trust proxy', env.trustProxy);
 
@@ -21,8 +25,10 @@ app.use(express.json({ limit: '10kb' }));
 app.use(
     pinoHttp({
         logger,
-        customSuccessMessage: (req, res, responseTime) => `${req.method} ${req.url} ${res.statusCode} ${responseTime}ms`,
-        customErrorMessage: (req, res, err) => `${req.method} ${req.url} ${res.statusCode} - ${err.message}`,
+        // The host's health checks and the keep-alive timer hit /health constantly; leave them out of the log
+        autoLogging: { ignore: (req) => fullPath(req) === '/health' },
+        customSuccessMessage: (req, res, responseTime) => `${req.method} ${fullPath(req)} ${res.statusCode} ${responseTime}ms`,
+        customErrorMessage: (req, res, err) => `${req.method} ${fullPath(req)} ${res.statusCode} - ${err.message}`,
         serializers: { req: () => undefined, res: () => undefined },
         customAttributeKeys: { responseTime: 'ms' },
     }),
