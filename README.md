@@ -1,0 +1,236 @@
+# College Review System — API
+
+A REST API where students rate and review colleges. Built with Node.js, Express 5, TypeScript, MongoDB (Mongoose), JWT and bcrypt, validated with Joi and tested with Jest and Supertest.
+
+- **Interactive API docs:** `http://localhost:5000/api-docs` (Swagger UI) once the server is running
+- **Production-readiness note:** [docs/PRODUCTION.md](docs/PRODUCTION.md)
+- **Test coverage output:** [docs/coverage-summary.txt](docs/coverage-summary.txt)
+- **Frontend:** a separate React app in `../Frontend`
+
+## Quick start
+
+You need Node.js 20 or newer and Docker.
+
+```bash
+git clone <this repository>
+cd Backend
+cp .env.example .env
+docker-compose up -d      # starts MongoDB on localhost:27017
+npm install
+npm run seed              # creates the roles and the first admin account
+npm run dev               # http://localhost:5000
+npm test
+```
+
+The defaults in `.env.example` work as they are with the MongoDB that `docker-compose` starts.
+
+**If `docker-compose up -d` reports that port 27017 is already in use** (usually a MongoDB installed on the machine), either use that MongoDB as it is and skip the Docker step, or pick another port: in `.env` set `MONGO_PORT=27018` and change `MONGODB_URI` to `mongodb://localhost:27018/college_reviews`, then run `docker-compose up -d` again.
+
+After seeding, log in with:
+
+| Account | Email | Password | Created by |
+|---|---|---|---|
+| Admin | `admin@example.com` | `Password@123` | `npm run seed` |
+| Teacher | `teacher@example.com` | `Password@123` | `npm run seed:demo` |
+| Students | `arun@example.com`, `priya@example.com`, `karthik@example.com`, `divya@example.com`, `vignesh@example.com` | `Password@123` | `npm run seed:demo` |
+
+`npm run seed:demo` is optional. It adds the teacher and student accounts above, five colleges and sixteen reviews, so there is something to look at straight away.
+
+**Try it:** open `/api-docs`, run `POST /auth/login` with the admin account, copy `data.token` from the response, click **Authorize** and paste it in. Every endpoint can then be called from the page. The raw OpenAPI document is at `/api-docs.json` and can be imported into Postman.
+
+### Without Docker
+
+Point `MONGODB_URI` in `.env` at any MongoDB 5.0 or newer (a local install or MongoDB Atlas) and skip the `docker-compose` step. The tests never need a database: they start their own in-memory MongoDB.
+
+### Everything in containers
+
+```bash
+docker compose --profile api up -d --build
+```
+
+This also builds and runs the API in a container, in production mode. Production mode refuses to start with a weak signing secret, so first set `JWT_SECRET` in `.env` to a random value of at least 32 characters (`openssl rand -hex 32`).
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the server and restart it when a file changes |
+| `npm run build` / `npm start` | Compile to `dist/`, then run the compiled server |
+| `npm test` | Run all tests |
+| `npm run test:coverage` | Run all tests and report coverage |
+| `npm run seed` | Create the starter roles and the first admin. Safe to run again. |
+| `npm run seed:demo` | Add sample accounts, colleges and reviews. Safe to run again. |
+| `npm run format` / `npm run format:check` | Format the code with Biome, or only check it |
+
+## Configuration
+
+All settings come from environment variables, read from `.env`. The server stops at startup with a clear message if a required one is missing.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `MONGODB_URI` | Yes | — | Where MongoDB is |
+| `JWT_SECRET` | Yes | — | Signs login tokens. In production it must be at least 32 random characters. |
+| `PORT` | No | `5000` | Port the server listens on |
+| `NODE_ENV` | No | `development` | `development`, `test` or `production` |
+| `JWT_EXPIRES_IN` | No | `1d` | How long a login token lasts |
+| `CORS_ORIGIN` | No | `*` | The frontend address allowed to call the API from a browser |
+| `ACTION_LOG_RETENTION_DAYS` | No | `90` | How long action log entries are kept |
+| `SEED_ADMIN_USERNAME`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | No | `admin`, `admin@example.com`, `Password@123` | The admin created by `npm run seed` |
+| `SEED_DEMO_PASSWORD` | No | `Password@123` | Password of the accounts created by `npm run seed:demo` |
+| `MONGO_PORT` | No | `27017` | The port on your machine that the Docker MongoDB is published on |
+| `DNS_SERVERS` | No | — | Only for Atlas connection problems behind some VPNs; see `.env.example` |
+
+## API
+
+Every path is under `/api/v1`. Responses have one shape:
+
+```jsonc
+// success
+{ "success": true, "data": { ... }, "meta": { "page": 1, "limit": 10, "total": 42, "totalPages": 5 } }  // meta on lists only
+
+// failure
+{ "success": false, "message": "Validation failed", "errors": [{ "field": "email", "message": "\"email\" must be a valid email" }] }  // errors on validation failures only
+```
+
+"Needs" names the permission an endpoint requires. "Logged in" means any valid token.
+
+### Auth
+
+| Method and path | Needs | What it does |
+|---|---|---|
+| `POST /auth/register` | Public | Create your own account. Always a student. |
+| `POST /auth/login` | Public | Returns the user and a token |
+| `GET /auth/me` | Logged in | The current user and the permissions their role grants |
+| `PATCH /auth/me` | Logged in | Change your own username or email |
+| `PATCH /auth/me/password` | Logged in | Change your own password (needs the current one) |
+
+### Colleges
+
+| Method and path | Needs | What it does |
+|---|---|---|
+| `GET /colleges` | Public | List with `averageRating` and `reviewCount`. Query: `page`, `limit`, `search`, `city`, `state`, `minRating`, `sort` (`newest`, `name`, `rating`, `reviews`), `order` (`asc`, `desc`). |
+| `GET /colleges/:id` | Public | One college with its rating figures |
+| `POST /colleges` | `college:create` | Add a college |
+| `PATCH /colleges/:id` | `college:update` | Edit a college |
+| `DELETE /colleges/:id` | `college:delete` | Delete a college and all its reviews |
+
+### Reviews
+
+| Method and path | Needs | What it does |
+|---|---|---|
+| `GET /reviews` | Public | List. Query: `page`, `limit`, `college`, `user`, `minRating`, `maxRating`, `search`, `sort` (`newest`, `oldest`, `highest`, `lowest`). |
+| `GET /reviews/:id` | Public | One review |
+| `POST /reviews` | `review:create` | Review a college. One per person per college. |
+| `PATCH /reviews/:id` | `review:create`, and it must be yours | Edit your own review |
+| `DELETE /reviews/:id` | It is yours, or `review:delete:any` | Delete a review |
+
+### Users, roles and logs
+
+| Method and path | Needs | What it does |
+|---|---|---|
+| `POST /users` | `user:create` (and `role:assign` for any role other than student) | Create an account for someone else |
+| `GET /users`, `GET /users/:id` | `user:read` | List (query: `page`, `limit`, `role`, `search`) or fetch one |
+| `PATCH /users/:id/role` | `role:assign` | Change a user's role |
+| `DELETE /users/:id` | `user:delete` | Delete a user and their reviews |
+| `GET /roles`, `GET /roles/:id` | `role:read` | List roles with their permissions, or fetch one |
+| `POST /roles`, `PATCH /roles/:id`, `DELETE /roles/:id` | `role:create`, `role:update`, `role:delete` | Manage roles |
+| `GET /permissions` | `role:read` | The list of permissions that can be given to a role |
+| `GET /action-logs` | `log:read` | Who did what, and what was refused. Query: `page`, `limit`, `actor`, `action`, `outcome`, `targetType`, `targetId`, `from`, `to`. |
+| `GET /stats/overview` | Logged in | Totals, reviews per day for the last 7 days, and the rating distribution |
+
+Also outside `/api/v1`: `GET /health`, `GET /api-docs`, `GET /api-docs.json`.
+
+## Access control
+
+Every user has one **role**, and a role is a list of **permissions**. Endpoints check for a permission, never for a role name.
+
+| Permission | Admin | Teacher | Student |
+|---|:-:|:-:|:-:|
+| `user:read`, `user:delete` | ✓ | | |
+| `user:create` | ✓ | ✓ (students only) | |
+| `role:read`, `role:create`, `role:update`, `role:delete`, `role:assign` | ✓ | | |
+| `college:create`, `college:update` | ✓ | ✓ | |
+| `college:delete` | ✓ | | |
+| `review:create` | ✓ | | ✓ |
+| `review:delete:any` | ✓ | | |
+| `log:read` | ✓ | | |
+
+This table is the starting point that `npm run seed` writes. It is data, not code:
+
+- **Roles live in the database** and are managed through the API. An admin can create a new role (say, "moderator" with `review:delete:any`), or change what teachers and students may do, with no code change. The change applies on each user's next request, even to tokens already issued, because the token only identifies the user and permissions are read from the database every time.
+- **Permissions live in the code** (`src/common/constants/permissions.ts`). A permission only means something where an endpoint checks for it, so creating one through the API would produce a name that nothing enforces.
+- **The admin role is fixed.** It cannot be renamed, edited or deleted, and at every startup it is given every permission, so adding a permission in code can never lock administrators out.
+
+Rules that are about a specific record, not a role, are checked separately: only a review's author can edit it (not even an admin can change what someone else wrote), nobody can change their own role or delete their own account, and a role cannot be deleted while users still have it.
+
+## How ratings are kept honest
+
+- **Only people whose role has `review:create` can review.** By default that is students (and the admin role, which has every permission). Teachers manage colleges but do not rate them.
+- **One review per person per college**, enforced by a unique index in the database, so it holds even when two requests arrive at the same moment.
+- **Ratings are whole numbers from 1 to 5.**
+- **The average is not stored.** `averageRating` and `reviewCount` are calculated from the reviews each time a college is read, with a MongoDB aggregation (`$lookup` with `$group`, `$avg` and a count; see `src/repositories/college.repository.ts`). They cannot go stale.
+- **A college with no reviews** has `averageRating: null` and `reviewCount: 0`, and sorts last by rating in either direction.
+- **Averages are rounded to one decimal, half up** (4.25 becomes 4.3). MongoDB's own `$round` would give 4.2.
+- **Deleting a college deletes its reviews; deleting a user deletes theirs.**
+
+## Action log
+
+Every change made through the API is recorded: who did it, what they did, to what, from which IP, and whether it succeeded. Refused attempts (403) and failed logins are recorded too, with the reason. Reads, validation errors and not-found requests are left out to keep the log useful.
+
+Entries cannot be edited or deleted through the API, never contain passwords or tokens, and are removed automatically after `ACTION_LOG_RETENTION_DAYS`.
+
+## Assumptions
+
+The brief names three roles but not what each may do, and leaves a few other things open. These are the choices made:
+
+1. **Self-registration creates students only.** Teachers and further admins are created by someone with the right permission. The first admin comes from `npm run seed`.
+2. **Teachers can add and edit colleges and create student accounts, but cannot review.** Reviews are meant to reflect student experience.
+3. **Reading colleges and reviews is public.** People browse ratings before they have an account. Everything else needs a token.
+4. **Roles are stored in the database rather than hard-coded**, so access rules can change without a deploy. The three roles in the brief are the seeded starting point.
+5. **Search is a case-insensitive "contains" match** on a few text fields, with the input escaped so it cannot be used as a pattern.
+6. **An action log and a dashboard figures endpoint** were added beyond the brief, to support the frontend and to make access-control decisions auditable.
+
+## Tests
+
+```bash
+npm test                 # 174 tests in 12 files
+npm run test:coverage
+```
+
+| | Covered |
+|---|---|
+| Statements | 98.26% |
+| Branches | 91.30% |
+| Functions | 98.77% |
+| Lines | 98.91% |
+
+The full per-file table is in [docs/coverage-summary.txt](docs/coverage-summary.txt).
+
+These are integration tests: each one sends real HTTP requests to the Express app with Supertest and runs against a real MongoDB that `mongodb-memory-server` starts in memory, so no Docker or database is needed to run them. They cover authentication, every CRUD endpoint, each permission boundary, the rating aggregation (including rounding, unrated colleges and simultaneous duplicate reviews), the action log and the startup checks.
+
+The first run downloads a MongoDB binary (about 100 MB), which can take a minute.
+
+## Project structure
+
+```
+src/
+  app.ts                    Express app: security headers, CORS, JSON, request logging, routes, error handler
+  server.ts                 Connects to the database, starts listening, shuts down cleanly
+  routes/                   Paths, the middleware that guards each one, and its OpenAPI documentation
+  controllers/              Read the request, call a service, send the response
+  services/                 Business rules
+  repositories/             Every MongoDB query, including the aggregation pipelines
+  models/                   Mongoose schemas and indexes
+  common/
+    config/                 Environment, database connection, logger, Swagger
+    constants/              Permissions, starter roles, action names
+    middlewares/            Authentication, permission check, validation, audit, error handling
+    validators/             Joi schemas
+    interfaces/             TypeScript types
+    utils/                  ApiError, token helpers, pagination
+scripts/                    seed.ts, seed-demo.ts
+tests/                      Integration tests and their helpers
+docs/                       Production-readiness note, coverage output
+```
+
+A request moves through the layers in one direction: route, controller, service, repository, model. Controllers know about HTTP and nothing else; services know the rules and nothing about HTTP; only repositories touch the database.

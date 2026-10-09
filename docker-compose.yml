@@ -1,0 +1,45 @@
+# `docker-compose up -d` starts MongoDB only; the API then runs on your machine with `npm run dev`.
+# To run the API in a container as well:  docker compose --profile api up -d --build
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: college-reviews-mongo
+    restart: unless-stopped
+    ports:
+      # Change MONGO_PORT in .env if something else on your machine already uses 27017
+      - '${MONGO_PORT:-27017}:27017'
+    volumes:
+      # Keeps the data when the container is recreated; `docker compose down -v` deletes it
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    # Not started by a plain `docker-compose up`; only with `--profile api`
+    profiles: ['api']
+    build: .
+    container_name: college-reviews-api
+    restart: unless-stopped
+    ports:
+      - '${PORT:-5000}:5000'
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      # Inside the compose network MongoDB is reached by its service name, not localhost
+      MONGODB_URI: mongodb://mongo:27017/college_reviews
+      # Read from .env. Production mode needs a random value of at least 32 characters.
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      ACTION_LOG_RETENTION_DAYS: ${ACTION_LOG_RETENTION_DAYS:-90}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:

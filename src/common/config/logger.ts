@@ -1,5 +1,8 @@
 import pino from 'pino';
 
+// Loads .env first, so NODE_ENV and LOG_LEVEL are set whichever file happens to import the logger first
+import './env';
+
 const isDev = process.env.NODE_ENV === 'development';
 
 const logger = pino({

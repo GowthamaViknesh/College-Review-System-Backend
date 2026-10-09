@@ -7,8 +7,9 @@ import { createStarterRoles } from '../src/services/role.service';
 import * as roleRepository from '../src/repositories/role.repository';
 import { connectDatabase, disconnectDatabase } from '../src/common/config/db';
 
-// Optional sample data for trying the API: a few colleges, students and reviews.
-// Run `npm run seed` first (it creates the admin); this script only adds to an empty colleges collection.
+// Optional sample data for trying the API: a teacher, a few students, colleges and reviews.
+// Run `npm run seed` first (it creates the admin). Safe to run again: accounts that exist are kept,
+// and colleges and reviews are only added when there are no colleges yet.
 const PASSWORD = process.env.SEED_DEMO_PASSWORD || 'Password@123';
 
 const COLLEGES = [
@@ -19,6 +20,7 @@ const COLLEGES = [
     { name: 'National Institute of Technology', city: 'Tiruchirappalli', state: 'Tamil Nadu', description: 'Institute of national importance' },
 ];
 
+const TEACHER = 'teacher';
 const STUDENTS = ['arun', 'priya', 'karthik', 'divya', 'vignesh'];
 
 // One row per college, one rating per student; 0 means that student did not review that college.
@@ -43,19 +45,25 @@ async function seedDemo() {
     await connectDatabase();
     await createStarterRoles();
 
-    if (await College.exists({})) {
-        logger.info('Colleges already exist, demo data left unchanged');
-        return disconnectDatabase();
-    }
-
     const admin = await User.findOne({ role: (await roleRepository.findByName(ADMIN_ROLE))!._id });
     if (!admin) throw new Error('No admin user found. Run "npm run seed" first.');
     const studentRole = (await roleRepository.findByName(DEFAULT_ROLE))!;
+    const teacherRole = (await roleRepository.findByName(TEACHER))!;
 
-    const students = [];
-    for (const username of STUDENTS) {
+    // An existing account is kept as it is; a missing one is created
+    const ensureUser = async (username: string, role: { _id: unknown }) => {
         const email = `${username}@example.com`;
-        students.push((await User.findOne({ email })) ?? (await User.create({ username, email, password: PASSWORD, role: studentRole._id })));
+        return (await User.findOne({ email })) ?? (await User.create({ username, email, password: PASSWORD, role: role._id }));
+    };
+
+    await ensureUser(TEACHER, teacherRole);
+    const students = [];
+    for (const username of STUDENTS) students.push(await ensureUser(username, studentRole));
+    logger.info(`Accounts ready: ${TEACHER}@example.com and ${students.length} students (password ${PASSWORD})`);
+
+    if (await College.exists({})) {
+        logger.info('Colleges already exist, so no colleges or reviews were added');
+        return disconnectDatabase();
     }
 
     const colleges = await College.insertMany(COLLEGES.map((college) => ({ ...college, createdBy: admin._id })));
@@ -70,7 +78,7 @@ async function seedDemo() {
     });
     await Review.insertMany(reviews);
 
-    logger.info(`Created ${colleges.length} colleges, ${students.length} students (password ${PASSWORD}) and ${reviews.length} reviews`);
+    logger.info(`Created ${colleges.length} colleges and ${reviews.length} reviews`);
     await disconnectDatabase();
 }
 

@@ -24,6 +24,8 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
         password: {
             type: String,
             required: [true, 'Password is required'],
+            // Left out of every query unless it asks with .select('+password'), so the hash is not carried around the app
+            select: false,
         },
         // A user has exactly one role; what the role may do lives on the Role document
         role: {
