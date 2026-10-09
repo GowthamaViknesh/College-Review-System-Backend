@@ -15,6 +15,8 @@ RUN npm run build
 # --- Run: only the compiled code and the packages it needs at runtime ---
 FROM node:22-alpine
 ENV NODE_ENV=production
+# The port inside the container. A hosting platform that sets PORT itself (Render does) overrides this.
+ENV PORT=5000
 WORKDIR /app
 
 COPY package*.json ./
@@ -26,7 +28,8 @@ COPY --from=build /app/dist ./dist
 USER node
 
 EXPOSE 5000
+# Checks whichever port the server was actually told to listen on
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:5000/health || exit 1
+  CMD wget -qO- http://localhost:${PORT}/health || exit 1
 
 CMD ["node", "dist/server.js"]
