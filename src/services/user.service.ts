@@ -7,7 +7,8 @@ import { DEFAULT_ROLE } from '../common/constants/roles';
 import { PERMISSIONS } from '../common/constants/permissions';
 import { ApiError, paginationMeta, validationError } from '../common/utils/utils';
 import { deleteImage } from '../common/utils/image-storage';
-import { CreateUserRequest, ListUsersQuery, RegisterInput } from '../common/interfaces/user.interface';
+import * as authzService from './authz.service';
+import { CreateUserRequest, ListUsersQuery, RegisterInput, UpdateProfileInput } from '../common/interfaces/user.interface';
 
 // The API refers to roles by name; the database stores them by id
 async function findRoleByName(name: string) {
@@ -52,6 +53,33 @@ export async function getUserById(id: string) {
     const user = await userRepository.findByUserId(id);
     if (!user) throw new ApiError(404, 'User not found');
     return user;
+}
+
+// Finds the user someone wants to edit, and checks they may. Changing an account's email is enough to
+// take it over (ask for a password reset, read the code), so being able to edit users must not reach
+// further than being able to create them: without role:assign, only student accounts.
+async function findEditableUser(actorPermissions: Set<string>, id: string) {
+    const user = await getUserById(id);
+    const roleName = (user.role as { name?: string } | null)?.name;
+    if (roleName !== DEFAULT_ROLE && !actorPermissions.has(PERMISSIONS.ROLE_ASSIGN)) {
+        throw new ApiError(403, `You may only edit users with the "${DEFAULT_ROLE}" role`);
+    }
+    return user;
+}
+
+export async function updateUser(actorPermissions: Set<string>, id: string, input: UpdateProfileInput) {
+    const user = await findEditableUser(actorPermissions, id);
+    return authzService.updateProfile(user.id, input);
+}
+
+export async function setUserAvatar(actorPermissions: Set<string>, id: string, file: Buffer) {
+    const user = await findEditableUser(actorPermissions, id);
+    return authzService.setAvatar(user, file);
+}
+
+export async function removeUserAvatar(actorPermissions: Set<string>, id: string) {
+    const user = await findEditableUser(actorPermissions, id);
+    return authzService.removeAvatar(user.id, user.avatar);
 }
 
 export async function updateUserRole(actorId: string, id: string, roleName: string) {

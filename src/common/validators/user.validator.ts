@@ -36,6 +36,9 @@ export const createUserSchema = Joi.object({
 // Changing your own details: only the fields sent are changed. The role is not here; that needs role:assign.
 export const updateProfileSchema = Joi.object({ username, email }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
 
+// Someone with user:update changing another person's details. Not the role (that is role:assign) and not the password.
+export const updateUserSchema = Joi.object({ username, email }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
+
 export const changePasswordSchema = Joi.object({
     currentPassword: Joi.string().required(),
     newPassword: password.required().invalid(Joi.ref('currentPassword')).messages({ 'any.invalid': '{{#label}} must be different from the current password' }),

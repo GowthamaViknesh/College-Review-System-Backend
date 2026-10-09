@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 
+import logger from '../config/logger';
 import { ApiError, verifyToken } from '../utils/utils';
 import type { PermissionName } from '../constants/permissions';
 import * as userRepository from '../../repositories/user.repository';
@@ -17,6 +18,10 @@ declare global {
     }
 }
 
+// "Last active" is for people to read, so a minute's accuracy is plenty. Writing it at most this often
+// keeps a busy page (which makes many requests at once) from turning every one of them into a database write.
+const LAST_ACTIVE_EVERY_MS = 60_000;
+
 // Requires a valid "Authorization: Bearer <token>" header, then attaches the user and their permissions
 export const protect: RequestHandler = async (req, _res, next) => {
     const header = req.headers.authorization;
@@ -32,6 +37,13 @@ export const protect: RequestHandler = async (req, _res, next) => {
     // Token times are whole seconds, so the comparison is made in whole seconds too.
     const changedAt = user.passwordChangedAt ? Math.floor(user.passwordChangedAt.getTime() / 1000) : 0;
     if (payload.iat !== undefined && payload.iat < changedAt) throw new ApiError(401, 'Your password was changed. Please log in again.');
+
+    const now = new Date();
+    if (!user.lastActiveAt || now.getTime() - user.lastActiveAt.getTime() >= LAST_ACTIVE_EVERY_MS) {
+        // Bookkeeping only: a failure here must not fail the request it rides on
+        await userRepository.touchLastActive(user.id, now).catch((err) => logger.warn({ err }, 'Could not record last activity'));
+        user.lastActiveAt = now;
+    }
 
     req.user = user;
     req.permissions = new Set(user.role?.permissions);

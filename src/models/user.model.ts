@@ -52,6 +52,8 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
         },
         // Access tokens issued before this moment are refused
         passwordChangedAt: { type: Date, default: null },
+        // When they last logged in or made a request; null until they do
+        lastActiveAt: { type: Date, default: null },
     },
     {
         timestamps: true,

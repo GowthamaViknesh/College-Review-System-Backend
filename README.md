@@ -173,8 +173,9 @@ Every path is under `/api/v1`. Responses have one shape:
 |---|---|---|
 | `POST /users` | `user:create` (and `role:assign` for any role other than student) | Create an account for someone else |
 | `GET /users`, `GET /users/:id` | `user:read` | List (query: `page`, `limit`, `role`, `search`) or fetch one |
-| `PATCH /users/:id/role` | `role:assign` | Change a user's role |
-| `DELETE /users/:id` | `user:delete` | Delete a user and their reviews |
+| `PATCH /users/:id` | `user:update` | Edit a user's username or email. For anyone but a student, `role:assign` is needed too. |
+| `PUT /users/:id/avatar`, `DELETE /users/:id/avatar` | `user:update` | Set or remove a user's profile picture, under the same rule |
+$1| `DELETE /users/:id` | `user:delete` | Delete a user and their reviews |
 | `GET /roles`, `GET /roles/:id` | `role:read` | List roles with their permissions, or fetch one |
 | `POST /roles`, `PATCH /roles/:id`, `DELETE /roles/:id` | `role:create`, `role:update`, `role:delete` | Manage roles |
 | `GET /permissions` | `role:read` | The list of permissions that can be given to a role |
@@ -191,6 +192,7 @@ Every user has one **role**, and a role is a list of **permissions**. Endpoints 
 |---|:-:|:-:|:-:|
 | `user:read`, `user:delete` | ✓ | | |
 | `user:create` | ✓ | ✓ (students only) | |
+| `user:update` | ✓ | | |
 | `role:read`, `role:create`, `role:update`, `role:delete`, `role:assign` | ✓ | | |
 | `college:create`, `college:update` | ✓ | ✓ | |
 | `college:delete` | ✓ | | |
@@ -297,7 +299,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 303 tests in 19 files
+npm test                 # 325 tests in 21 files
 npm run test:coverage
 ```
 

@@ -30,6 +30,8 @@ async function issue(user: SessionUser, family: string): Promise<SessionTokens> 
     const refreshToken = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + env.refreshTokenDays * 24 * 60 * 60 * 1000);
     await refreshTokenRepository.create({ user: user.id, tokenHash: hash(refreshToken), family, expiresAt });
+    // Logging in, and coming back after a while, both count as using the site
+    await userRepository.touchLastActive(user.id, new Date());
 
     return { token: signToken({ sub: user.userId }), refreshToken };
 }

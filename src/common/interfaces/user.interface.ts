@@ -17,6 +17,8 @@ export interface IUser {
     avatar: StoredImage | null;
     // Access tokens issued before this moment are refused; null if the password was never changed
     passwordChangedAt: Date | null;
+    // When they last used the site, to the nearest minute or so; null if they never have
+    lastActiveAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
 }

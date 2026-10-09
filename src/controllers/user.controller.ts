@@ -21,6 +21,27 @@ export const getUser: RequestHandler<{ id: string }> = async (req, res) => {
     res.json({ success: true, data: { user } });
 };
 
+export const updateUser: RequestHandler<{ id: string }> = async (req, res) => {
+    setAudit(res, { details: { changed: Object.keys(req.body) } });
+
+    const user = await userService.updateUser(req.permissions!, req.params.id, req.body);
+    res.json({ success: true, data: { user } });
+};
+
+export const uploadUserAvatar: RequestHandler<{ id: string }> = async (req, res) => {
+    setAudit(res, { details: { changed: ['avatar'] } });
+
+    const user = await userService.setUserAvatar(req.permissions!, req.params.id, req.file!.buffer);
+    res.json({ success: true, data: { user } });
+};
+
+export const removeUserAvatar: RequestHandler<{ id: string }> = async (req, res) => {
+    setAudit(res, { details: { changed: ['avatar'] } });
+
+    const user = await userService.removeUserAvatar(req.permissions!, req.params.id);
+    res.json({ success: true, data: { user } });
+};
+
 export const updateUserRole: RequestHandler<{ id: string }> = async (req, res) => {
     setAudit(res, { details: { role: req.body.role } });
 

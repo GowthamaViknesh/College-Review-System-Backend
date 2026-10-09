@@ -4,6 +4,7 @@
 export const PERMISSIONS = {
     USER_READ: 'user:read',
     USER_CREATE: 'user:create',
+    USER_UPDATE: 'user:update',
     USER_DELETE: 'user:delete',
 
     ROLE_READ: 'role:read',
@@ -27,6 +28,7 @@ export type PermissionName = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const PERMISSION_DESCRIPTIONS: Record<PermissionName, string> = {
     'user:read': 'View the list of users and individual user details',
     'user:create': 'Create user accounts (giving them a role other than the default also needs role:assign)',
+    'user:update': "Edit another user's username, email and picture (for anyone but a student this also needs role:assign)",
     'user:delete': 'Delete user accounts',
     'role:read': 'View roles and the permissions catalogue',
     'role:create': 'Create custom roles',

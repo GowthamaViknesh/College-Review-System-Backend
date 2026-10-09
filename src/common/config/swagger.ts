@@ -67,6 +67,12 @@ const definition = {
                     username: { type: 'string', example: 'gowtham' },
                     email: { type: 'string', format: 'email', example: 'gowtham@example.com' },
                     role: { $ref: '#/components/schemas/RoleSummary' },
+                    lastActiveAt: {
+                        type: 'string',
+                        format: 'date-time',
+                        nullable: true,
+                        description: 'When they last logged in or used the API, accurate to about a minute; null if never',
+                    },
                     avatar: {
                         type: 'string',
                         format: 'uri',

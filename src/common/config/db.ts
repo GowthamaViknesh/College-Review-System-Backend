@@ -6,6 +6,7 @@ import logger from './logger';
 import { backfillPublicIds } from '../../services/public-id.service';
 import { syncRoles } from '../../services/role.service';
 import { fillMissingCountry } from '../../repositories/college.repository';
+import { fillLastActiveFromReviews } from '../../repositories/user.repository';
 
 export async function connectDatabase() {
     // Some local resolvers (VPN / DNS proxies) refuse SRV lookups needed by mongodb+srv:// URIs
@@ -21,6 +22,10 @@ export async function connectDatabase() {
     // Colleges recorded before they had a country were all Indian ones
     const withCountry = await fillMissingCountry('India');
     if (withCountry) logger.info(`Set the country of ${withCountry} existing colleges to India`);
+
+    // Accounts with no recorded activity take the date of their latest review, where they have one
+    const withActivity = await fillLastActiveFromReviews();
+    if (withActivity) logger.info(`Set "last active" for ${withActivity} accounts from their latest review`);
 
     // Keep roles consistent with the permissions defined in code, and make sure the admin role exists
     await syncRoles();

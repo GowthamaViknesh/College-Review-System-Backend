@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 
 import { User } from '../models/user.model';
+import { Review } from '../models/review.model';
 import { escapeRegex } from '../common/utils/utils';
 import { IRole } from '../common/interfaces/role.interface';
 import { CreateUserInput, StoredImage, UpdateProfileInput, UserFilter } from '../common/interfaces/user.interface';
@@ -66,6 +67,29 @@ export function findOtherByEmailOrUsername(id: string, { email, username }: Upda
     const taken = [...(email ? [{ email }] : []), ...(username ? [{ username }] : [])];
     if (!taken.length) return null;
     return User.findOne({ _id: { $ne: id }, $or: taken });
+}
+
+// Records that the user is using the site. Not an edit of the account, so updatedAt is left alone.
+export function touchLastActive(id: string, at: Date) {
+    return User.updateOne({ _id: id }, { lastActiveAt: at }, { timestamps: false });
+}
+
+// Activity was not recorded before lastActiveAt existed, but reviews were always dated. For anyone with
+// no recorded activity, the last time they wrote or edited a review is the best evidence there is of when
+// they last used the site, so it is filled in from that. Returns how many accounts were changed.
+// From now on, writing a review updates lastActiveAt like any other logged-in request.
+export async function fillLastActiveFromReviews() {
+    const unknown = await User.collection.distinct('_id', { $or: [{ lastActiveAt: null }, { lastActiveAt: { $exists: false } }] });
+    if (!unknown.length) return 0;
+
+    const latest = await Review.aggregate<{ _id: unknown; at: Date }>([{ $match: { user: { $in: unknown } } }, { $group: { _id: '$user', at: { $max: '$updatedAt' } } }]);
+    if (!latest.length) return 0;
+
+    // The driver is used directly so this does not count as an edit of the account
+    const result = await User.collection.bulkWrite(
+        latest.map(({ _id, at }) => ({ updateOne: { filter: { _id: _id as never, lastActiveAt: null }, update: { $set: { lastActiveAt: at } } } })),
+    );
+    return result.modifiedCount;
 }
 
 export function findByIdWithPassword(id: string) {

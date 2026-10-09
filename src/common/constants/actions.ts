@@ -10,6 +10,7 @@ export const ACTIONS = {
     PROFILE_UPDATE: 'profile:update',
 
     USER_CREATE: 'user:create',
+    USER_UPDATE: 'user:update',
     USER_DELETE: 'user:delete',
 
     ROLE_CREATE: 'role:create',
