@@ -96,9 +96,9 @@ All settings come from environment variables, read from `.env`. The server stops
 |---|---|---|---|
 | `MONGODB_URI` | Yes | — | Where MongoDB is |
 | `JWT_SECRET` | Yes | — | Signs login tokens. In production it must be at least 32 random characters. |
-| `PORT` | No | `5000` | Port the server listens on |
-| `NODE_ENV` | No | `development` | `development`, `test` or `production` |
-| `JWT_EXPIRES_IN` | No | `1d` | How long a login token lasts |
+| `PORT` | Yes | — | Port the server listens on. `5000` in `.env.example`; hosting platforms such as Render set it for you. |
+| `NODE_ENV` | No | — | `development` (readable logs), `test` or `production` (JSON logs and the signing-secret check) |
+| `JWT_EXPIRES_IN` | Yes | — | How long a login token lasts, e.g. `1d` or `12h` |
 | `CORS_ORIGIN` | No | `*` | The frontend address allowed to call the API from a browser. Several can be listed, separated by commas. |
 | `TRUST_PROXY` | No | off | Number of proxies in front of the server. Set to `1` on Render and similar platforms so the visitor's real IP address is used for rate limiting and the action log. |
 | `ACTION_LOG_RETENTION_DAYS` | No | `90` | How long action log entries are kept |
@@ -220,16 +220,16 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 174 tests in 12 files
+npm test                 # 182 tests in 12 files
 npm run test:coverage
 ```
 
 | | Covered |
 |---|---|
-| Statements | 98.26% |
-| Branches | 91.30% |
-| Functions | 98.77% |
-| Lines | 98.91% |
+| Statements | 98.29% |
+| Branches | 93.18% |
+| Functions | 98.80% |
+| Lines | 98.92% |
 
 The full per-file table is in [docs/coverage-summary.txt](docs/coverage-summary.txt).
 

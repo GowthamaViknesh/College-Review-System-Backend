@@ -20,6 +20,13 @@ function jwtSecret(): string {
     return secret;
 }
 
+// There is no fallback port: the server listens exactly where it is told to, or does not start
+function port(): number {
+    const value = Number(required('PORT'));
+    if (!Number.isInteger(value) || value < 0 || value > 65535) throw new Error('PORT must be a whole number between 0 and 65535');
+    return value;
+}
+
 // CORS_ORIGIN may list several addresses separated by commas, e.g. the deployed frontend and localhost.
 // Left unset, any site may call the API from a browser, which is only acceptable on your own machine.
 function corsOrigins(): string | string[] {
@@ -44,10 +51,11 @@ function trustProxy(): number | boolean | string {
 
 export const env = {
     nodeEnv: process.env.NODE_ENV,
-    port: Number(process.env.PORT),
+    port: port(),
     mongoUri: required('MONGODB_URI'),
     jwtSecret: jwtSecret(),
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN,
+    // Required rather than optional: without it every login would fail later, when the token is signed
+    jwtExpiresIn: required('JWT_EXPIRES_IN'),
     corsOrigin: corsOrigins(),
     trustProxy: trustProxy(),
     actionLogRetentionDays: Number(process.env.ACTION_LOG_RETENTION_DAYS) || 90,

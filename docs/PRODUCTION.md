@@ -36,7 +36,7 @@ This API was built as a small production-style service. It is ready to run for a
 - Graceful shutdown: on SIGTERM the server stops accepting connections, finishes writing pending log entries, then closes the database connection.
 - A multi-stage Dockerfile that runs the compiled code as a non-root user with only runtime dependencies, and a Compose file for local use.
 - A CI workflow that checks formatting, types, tests and the build on every push.
-- 174 integration tests with 98.9% line coverage.
+- 182 integration tests with 98.9% line coverage.
 
 ## Known limitations
 

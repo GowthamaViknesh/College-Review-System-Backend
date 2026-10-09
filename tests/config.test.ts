@@ -27,6 +27,18 @@ describe('startup configuration', () => {
         expect(loadEnv).toThrow('Missing required environment variable: JWT_SECRET');
     });
 
+    it('refuses to start without a port or a token lifetime, instead of failing later', () => {
+        delete process.env.PORT;
+        expect(loadEnv).toThrow('Missing required environment variable: PORT');
+
+        process.env.PORT = 'not-a-number';
+        expect(loadEnv).toThrow('PORT must be a whole number between 0 and 65535');
+
+        process.env.PORT = '5000';
+        delete process.env.JWT_EXPIRES_IN;
+        expect(loadEnv).toThrow('Missing required environment variable: JWT_EXPIRES_IN');
+    });
+
     it.each(['short-secret', 'change_me_to_a_long_random_string_of_at_least_32_chars'])('refuses a weak signing secret in production: %s', (secret) => {
         process.env.NODE_ENV = 'production';
         process.env.JWT_SECRET = secret;
