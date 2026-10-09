@@ -30,6 +30,9 @@ This API was built as a small production-style service. It is ready to run for a
 - Structured JSON logs (pino) in production, one line per request, with no headers or tokens in them.
 - An append-only action log records every change, every refused attempt and every failed login, and expires entries automatically.
 - `GET /health` for load balancers and container health checks.
+- A `TRUST_PROXY` setting, so that behind a load balancer the visitor's real IP address is used for rate limiting and the action log rather than the proxy's.
+- `CORS_ORIGIN` accepts a list, so the deployed frontend and local development can both be allowed without opening the API to every site.
+- A Render blueprint (`render.yaml`) for one-step deployment.
 - Graceful shutdown: on SIGTERM the server stops accepting connections, finishes writing pending log entries, then closes the database connection.
 - A multi-stage Dockerfile that runs the compiled code as a non-root user with only runtime dependencies, and a Compose file for local use.
 - A CI workflow that checks formatting, types, tests and the build on every push.
@@ -43,7 +46,6 @@ These are deliberate simplifications for the scope of the exercise. Each is safe
 |---|---|---|
 | **A token cannot be revoked before it expires.** Changing a password or logging out does not invalidate tokens already issued. | A stolen token works for up to a day. | Shorter-lived access tokens with refresh tokens, plus a token version on the user that is bumped on password change. |
 | **The rate limiter counts in memory, per server process.** | With several instances the real limit is multiplied; a restart resets it. | A shared store such as Redis. |
-| **The server does not know it is behind a proxy.** | Behind a load balancer every request appears to come from the proxy's address, so rate limiting would treat all users as one and action logs would record the wrong IP. | Set Express's `trust proxy` to match the deployment. |
 | **No email verification or password reset.** | Anyone can register with an address they do not own; a forgotten password needs an admin. | An email provider and two short-lived token flows. |
 | **Role and permissions are read from the database on every authenticated request.** | One extra lookup per request. | Cache roles for a few seconds, or invalidate the cache when a role changes. |
 | **Average ratings are computed on every read.** | The college list joins reviews each time; this slows as reviews grow into the hundreds of thousands. | Store the count and sum on the college and update them when a review changes, or cache the list. |
@@ -55,7 +57,7 @@ These are deliberate simplifications for the scope of the exercise. Each is safe
 ## Before going live
 
 1. **Secrets.** Generate a strong `JWT_SECRET` and keep it, and the database credentials, in a secrets manager rather than a file. Change the seeded admin password, or set `SEED_ADMIN_PASSWORD` before seeding.
-2. **HTTPS.** Run behind a reverse proxy or load balancer that terminates TLS, and set `trust proxy` accordingly.
+2. **HTTPS and the proxy count.** Run behind a reverse proxy or load balancer that terminates TLS, and set `TRUST_PROXY` to the number of proxies in front of the server. Verify it by checking that the action log records real visitor addresses.
 3. **Database.** Use a managed replica set with authentication, restricted network access, automated backups and a tested restore.
 4. **CORS.** Set `CORS_ORIGIN` to the real frontend address. The fallback of `*` is for local use only.
 5. **Token lifetime.** Shorten `JWT_EXPIRES_IN` and add refresh tokens, as described above.

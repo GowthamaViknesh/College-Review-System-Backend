@@ -2,6 +2,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+# The test library would download a 100 MB MongoDB binary here; the build does not need it
+ENV MONGOMS_DISABLE_POSTINSTALL=1
+
 COPY package*.json ./
 RUN npm ci
 

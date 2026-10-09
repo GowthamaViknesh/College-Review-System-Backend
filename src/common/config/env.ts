@@ -20,14 +20,36 @@ function jwtSecret(): string {
     return secret;
 }
 
+// CORS_ORIGIN may list several addresses separated by commas, e.g. the deployed frontend and localhost.
+// Left unset, any site may call the API from a browser, which is only acceptable on your own machine.
+function corsOrigins(): string | string[] {
+    const origins = (process.env.CORS_ORIGIN || '')
+        .split(',')
+        .map((origin) => origin.trim().replace(/\/$/, ''))
+        .filter(Boolean);
+    return origins.length ? origins : '*';
+}
+
+// How many proxies sit in front of the server (a hosting platform's load balancer counts as one).
+// Express needs to know so it reads the visitor's real address from the X-Forwarded-For header
+// instead of the proxy's. Wrong in either direction is bad: too low and everyone shares one address
+// (one person's failed logins lock everyone out); too high and a visitor can fake their address.
+// Unset means "not behind a proxy", which is right when running the server directly.
+function trustProxy(): number | boolean | string {
+    const value = (process.env.TRUST_PROXY || '').trim();
+    if (!value || value === 'false') return false;
+    if (value === 'true') return true;
+    return /^\d+$/.test(value) ? Number(value) : value;
+}
+
 export const env = {
-    nodeEnv: process.env.NODE_ENV || 'development',
-    port: Number(process.env.PORT) || 5000,
+    nodeEnv: process.env.NODE_ENV,
+    port: Number(process.env.PORT),
     mongoUri: required('MONGODB_URI'),
     jwtSecret: jwtSecret(),
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
-    corsOrigin: process.env.CORS_ORIGIN || '*',
-    // How long action log entries are kept before MongoDB removes them
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN,
+    corsOrigin: corsOrigins(),
+    trustProxy: trustProxy(),
     actionLogRetentionDays: Number(process.env.ACTION_LOG_RETENTION_DAYS) || 90,
     isTest: process.env.NODE_ENV === 'test',
 };
