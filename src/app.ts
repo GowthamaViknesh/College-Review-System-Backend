@@ -2,10 +2,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
 
 import routes from './routes';
 import { env } from './common/config/env';
 import logger from './common/config/logger';
+import { swaggerSpec } from './common/config/swagger';
 import { errorHandler, notFound } from './common/middlewares/error.middleware';
 
 const app = express();
@@ -28,6 +30,12 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/v1', routes);
+
+// Interactive API docs, plus the raw spec for importing into Postman or other tools
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { swaggerOptions: { persistAuthorization: true } }));
+app.get('/api-docs.json', (_req, res) => {
+    res.json(swaggerSpec);
+});
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,0 +1,51 @@
+import request from 'supertest';
+import app from '../src/app';
+
+describe('API documentation', () => {
+    it('serves the Swagger UI page', async () => {
+        const res = await request(app).get('/api-docs/');
+        expect(res.status).toBe(200);
+        expect(res.text).toContain('swagger-ui');
+    });
+
+    it('documents every endpoint', async () => {
+        const res = await request(app).get('/api-docs.json');
+        expect(res.status).toBe(200);
+        expect(res.body.openapi).toBe('3.0.3');
+
+        const documented = Object.entries<Record<string, unknown>>(res.body.paths)
+            .flatMap(([path, methods]) => Object.keys(methods).map((method) => `${method.toUpperCase()} ${path}`))
+            .sort();
+
+        // Adding a route? Add its @openapi block above it, then list it here.
+        expect(documented).toEqual(
+            [
+                'POST /auth/register',
+                'POST /auth/login',
+                'GET /auth/me',
+                'POST /users',
+                'GET /users',
+                'GET /users/{id}',
+                'PATCH /users/{id}/role',
+                'DELETE /users/{id}',
+                'GET /roles',
+                'GET /roles/{id}',
+                'POST /roles',
+                'PATCH /roles/{id}',
+                'DELETE /roles/{id}',
+                'GET /permissions',
+            ].sort(),
+        );
+    });
+
+    it('marks every endpoint except register and login as needing a token', async () => {
+        const res = await request(app).get('/api-docs.json');
+        const open = Object.entries<Record<string, { security?: unknown[] }>>(res.body.paths)
+            .flatMap(([path, methods]) => Object.entries(methods).map(([method, operation]) => ({ path, method, operation })))
+            .filter(({ operation }) => !operation.security)
+            .map(({ method, path }) => `${method.toUpperCase()} ${path}`)
+            .sort();
+
+        expect(open).toEqual(['POST /auth/login', 'POST /auth/register']);
+    });
+});
