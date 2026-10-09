@@ -1,6 +1,8 @@
 import * as roleRepository from '../repositories/role.repository';
 import * as userRepository from '../repositories/user.repository';
 import * as reviewRepository from '../repositories/review.repository';
+import * as refreshTokenRepository from '../repositories/refresh-token.repository';
+import * as passwordResetRepository from '../repositories/password-reset.repository';
 import { DEFAULT_ROLE } from '../common/constants/roles';
 import { PERMISSIONS } from '../common/constants/permissions';
 import { ApiError, paginationMeta, validationError } from '../common/utils/utils';
@@ -68,5 +70,7 @@ export async function deleteUser(actorId: string, id: string) {
 
     // A removed account should not keep influencing college ratings
     await reviewRepository.deleteByUser(id);
+    await refreshTokenRepository.deleteByUser(id);
+    await passwordResetRepository.deleteByUser(id);
     if (user.avatar) await deleteImage(user.avatar.publicId);
 }

@@ -61,6 +61,10 @@ export function findOtherByEmailOrUsername(id: string, { email, username }: Upda
     return User.findOne({ _id: { $ne: id }, $or: taken });
 }
 
+export function existsById(id: string) {
+    return User.exists({ _id: id });
+}
+
 export function findByIdWithPassword(id: string) {
     return User.findById(id).select('+password');
 }

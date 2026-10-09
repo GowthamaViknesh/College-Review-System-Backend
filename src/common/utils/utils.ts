@@ -27,9 +27,11 @@ export function validationError(field: string, message: string): ApiError {
 // request, so a role change takes effect immediately instead of when the token expires.
 export interface TokenPayload {
     sub: string;
+    // When the token was issued, in seconds. Added by the signing library.
+    iat?: number;
 }
 
-export function signToken(payload: TokenPayload): string {
+export function signToken(payload: Pick<TokenPayload, 'sub'>): string {
     return jwt.sign(payload, env.jwtSecret, { expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'] });
 }
 

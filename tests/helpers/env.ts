@@ -7,3 +7,4 @@ process.env.MONGODB_URI = 'mongodb://unused-tests-use-memory-server';
 process.env.CLOUDINARY_CLOUD_NAME = '';
 process.env.CLOUDINARY_API_KEY = '';
 process.env.CLOUDINARY_API_SECRET = '';
+for (const name of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM']) process.env[name] = '';

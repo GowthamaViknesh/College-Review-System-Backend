@@ -13,6 +13,8 @@ export interface IUser {
     role: Types.ObjectId;
     // Profile picture; null until the user uploads one
     avatar: StoredImage | null;
+    // Access tokens issued before this moment are refused; null if the password was never changed
+    passwordChangedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
 }

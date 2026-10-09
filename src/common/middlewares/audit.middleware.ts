@@ -10,6 +10,8 @@ interface AuditContext {
     // Set when the action created something, so its id is not in the URL
     targetId?: string;
     details?: Record<string, unknown>;
+    // Set when the request succeeded but did nothing worth recording (logging out of a login that was already over)
+    skip?: boolean;
 }
 
 export function setAudit(res: Response, context: AuditContext) {
@@ -39,6 +41,7 @@ export const audit =
             if (!outcome) return;
 
             const context: AuditContext = res.locals.audit ?? {};
+            if (context.skip) return;
             const actor = context.actor ?? (req.user ? { id: req.user.id, username: req.user.username } : null);
 
             recordAction({

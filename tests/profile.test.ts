@@ -101,7 +101,7 @@ describe('PATCH /api/v1/auth/me/password', () => {
 
         const res = await change(me.auth, { currentPassword: 'password123', newPassword: 'brand-new-password' });
 
-        expect(res.status).toBe(204);
+        expect(res.status).toBe(200);
         expect((await login(me.user.email, 'brand-new-password')).status).toBe(200);
         expect((await login(me.user.email, 'password123')).status).toBe(401);
     });

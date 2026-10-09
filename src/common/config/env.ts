@@ -77,17 +77,46 @@ function cloudinary(): { cloudName: string; apiKey: string; apiSecret: string } 
     return { cloudName, apiKey, apiSecret };
 }
 
+// How long someone stays logged in without using the site. Each use of the refresh token starts the
+// period again, so an active user is never logged out and an abandoned login stops working by itself.
+function refreshTokenDays(): number {
+    const raw = process.env.REFRESH_TOKEN_EXPIRES_DAYS;
+    const days = raw === undefined || raw.trim() === '' ? 7 : Number(raw);
+    if (!Number.isFinite(days) || days <= 0) throw new Error('REFRESH_TOKEN_EXPIRES_DAYS must be a number of days greater than 0');
+    return days;
+}
+
+// The mail server that sends password reset codes. Optional: without it the rest of the API runs
+// normally. The four values come as a set, so having some but not all stops the server at startup.
+function smtp(): { host: string; port: number; user: string; pass: string; from: string } | null {
+    const names = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
+    const [host, rawPort, user, pass] = names.map((name) => (process.env[name] || '').trim());
+    const missing = names.filter((name) => !(process.env[name] || '').trim());
+
+    if (missing.length === names.length) return null;
+    if (missing.length) throw new Error(`Sending email needs all of ${names.join(', ')}. Missing: ${missing.join(', ')}`);
+
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error('SMTP_PORT must be a port number, usually 465 or 587');
+
+    // What recipients see as the sender. Most mail services only deliver mail sent as the account that logged in.
+    const from = (process.env.MAIL_FROM || '').trim() || `College Reviews <${user}>`;
+    return { host, port, user, pass, from };
+}
+
 export const env = {
     nodeEnv: process.env.NODE_ENV,
     port: port(),
     mongoUri: required('MONGODB_URI'),
     jwtSecret: jwtSecret(),
-    // Required rather than optional: without it every login would fail later, when the token is signed
+    // How long an access token lasts. Required rather than optional: without it every login would fail later, when the token is signed
     jwtExpiresIn: required('JWT_EXPIRES_IN'),
+    refreshTokenDays: refreshTokenDays(),
     corsOrigin: corsOrigins(),
     trustProxy: trustProxy(),
     keepAlive: keepAlive(),
     cloudinary: cloudinary(),
+    smtp: smtp(),
     actionLogRetentionDays: Number(process.env.ACTION_LOG_RETENTION_DAYS) || 90,
     isTest: process.env.NODE_ENV === 'test',
 };

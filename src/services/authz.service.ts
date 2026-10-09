@@ -1,8 +1,9 @@
 import * as roleRepository from '../repositories/role.repository';
 import * as userRepository from '../repositories/user.repository';
+import { endAllSessions, startSession } from './session.service';
 import { createUserWithRole } from './user.service';
 import { DEFAULT_ROLE } from '../common/constants/roles';
-import { ApiError, signToken, validationError } from '../common/utils/utils';
+import { ApiError, validationError } from '../common/utils/utils';
 import { deleteImage, uploadImage } from '../common/utils/image-storage';
 import { RegisterInput, UpdateProfileInput } from '../common/interfaces/user.interface';
 
@@ -15,7 +16,7 @@ export async function register(input: RegisterInput) {
     }
 
     const user = await createUserWithRole(input, DEFAULT_ROLE);
-    return { user, token: signToken({ sub: user.id }) };
+    return { user, ...(await startSession(user.id)) };
 }
 
 export async function login(email: string, password: string) {
@@ -26,7 +27,7 @@ export async function login(email: string, password: string) {
         throw new ApiError(401, 'Invalid email or password');
     }
 
-    return { user, token: signToken({ sub: user.id }) };
+    return { user, ...(await startSession(user.id)) };
 }
 
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
@@ -72,5 +73,11 @@ export async function changePassword(userId: string, currentPassword: string, ne
 
     // Saving (rather than an update query) runs the model hook that hashes the password
     user.password = newPassword;
+    user.passwordChangedAt = new Date();
     await user.save();
+
+    // Whoever knew the old password is logged out everywhere. The person who just changed it gets a
+    // fresh login in return, so they carry on where they are.
+    await endAllSessions(userId);
+    return startSession(userId);
 }

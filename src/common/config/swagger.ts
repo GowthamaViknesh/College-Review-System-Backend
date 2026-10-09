@@ -343,7 +343,26 @@ const definition = {
                         type: 'object',
                         properties: {
                             user: { $ref: '#/components/schemas/User' },
-                            token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+                            token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', description: 'Access token; short-lived' },
+                            refreshToken: { type: 'string', example: 'q3J0b2tlbi1leGFtcGxlLW9ubHktbm90LXJlYWwtdG9rZW4', description: 'Exchange at POST /auth/refresh; works once' },
+                        },
+                    },
+                },
+            },
+            RefreshTokenRequest: {
+                type: 'object',
+                required: ['refreshToken'],
+                properties: { refreshToken: { type: 'string', example: 'q3J0b2tlbi1leGFtcGxlLW9ubHktbm90LXJlYWwtdG9rZW4' } },
+            },
+            TokensResponse: {
+                type: 'object',
+                properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                        type: 'object',
+                        properties: {
+                            token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', description: 'Access token; short-lived' },
+                            refreshToken: { type: 'string', example: 'bmV4dC1yZWZyZXNoLXRva2VuLWV4YW1wbGUtb25seQ', description: 'Replaces the one that was sent' },
                         },
                     },
                 },

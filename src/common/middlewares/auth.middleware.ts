@@ -28,6 +28,11 @@ export const protect: RequestHandler = async (req, _res, next) => {
     const user = await userRepository.findByIdWithAccess(payload.sub);
     if (!user) throw new ApiError(401, 'User no longer exists');
 
+    // A password change ends every login made before it, without waiting for those tokens to expire.
+    // Token times are whole seconds, so the comparison is made in whole seconds too.
+    const changedAt = user.passwordChangedAt ? Math.floor(user.passwordChangedAt.getTime() / 1000) : 0;
+    if (payload.iat !== undefined && payload.iat < changedAt) throw new ApiError(401, 'Your password was changed. Please log in again.');
+
     req.user = user;
     req.permissions = new Set(user.role?.permissions);
     next();

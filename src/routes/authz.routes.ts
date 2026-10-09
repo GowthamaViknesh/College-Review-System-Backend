@@ -6,7 +6,8 @@ import { audit } from '../common/middlewares/audit.middleware';
 import { protect } from '../common/middlewares/auth.middleware';
 import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { validate } from '../common/middlewares/validate.middleware';
-import { changePasswordSchema, loginSchema, registerSchema, updateProfileSchema } from '../common/validators/user.validator';
+import { forgotPasswordSchema, resetPasswordSchema } from '../common/validators/user.validator';
+import { changePasswordSchema, loginSchema, refreshTokenSchema, registerSchema, updateProfileSchema } from '../common/validators/user.validator';
 import * as authzController from '../controllers/authz.controller';
 
 const router = Router();
@@ -58,7 +59,10 @@ router.post('/register', audit(ACTIONS.AUTH_REGISTER, 'user'), authLimiter, vali
  *   post:
  *     tags: [Auth]
  *     summary: Log in and get a token
- *     description: Public. After `npm run seed` you can log in as `admin@example.com` / `Password@123`.
+ *     description: >
+ *       Public. After `npm run seed` you can log in as `admin@example.com` / `Password@123`.
+ *       Returns a short-lived access token (`token`, sent as `Authorization: Bearer ...` on other requests)
+ *       and a refresh token for getting the next pair from `POST /auth/refresh`.
  *     requestBody:
  *       required: true
  *       content:
@@ -87,6 +91,164 @@ router.post('/register', audit(ACTIONS.AUTH_REGISTER, 'user'), authLimiter, vali
  *         $ref: '#/components/responses/TooManyRequests'
  */
 router.post('/login', audit(ACTIONS.AUTH_LOGIN, 'user'), authLimiter, validate({ body: loginSchema }), authzController.login);
+
+/**
+ * @openapi
+ * /auth/forgot-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Ask for a password reset code by email
+ *     description: >
+ *       Public. If the address belongs to an account, a 6-digit code is emailed to it. The code works for 10 minutes,
+ *       can be tried 5 times and used once. Asking again replaces the previous code, at most once a minute per account.
+ *       The answer is the same whether or not the address has an account, so this cannot be used to find out who is registered.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string, format: email, example: admin@example.com }
+ *     responses:
+ *       200:
+ *         description: Accepted. Says nothing about whether the account exists.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message: { type: string, example: 'If an account exists for that email, a reset code has been sent to it.' }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       503:
+ *         description: Sending email is not set up on this server (the SMTP_* settings are missing)
+ */
+router.post('/forgot-password', audit(ACTIONS.AUTH_PASSWORD_RESET_REQUEST, 'user'), authLimiter, validate({ body: forgotPasswordSchema }), authzController.forgotPassword);
+
+/**
+ * @openapi
+ * /auth/reset-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Set a new password using the emailed code
+ *     description: >
+ *       Public. On success the password is changed, the code stops working, and every existing login for the account
+ *       is ended on every device. Log in with the new password afterwards.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code, newPassword]
+ *             properties:
+ *               email: { type: string, format: email, example: admin@example.com }
+ *               code: { type: string, pattern: '^\\d{6}$', example: '482913' }
+ *               newPassword: { type: string, minLength: 8, maxLength: 72, example: NewPassword@456 }
+ *     responses:
+ *       204:
+ *         description: Password changed
+ *       400:
+ *         description: >
+ *           The body is invalid, or the code is wrong, expired, already used or out of attempts.
+ *           These all get the same message.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               success: false
+ *               message: Validation failed
+ *               errors: [{ field: code, message: 'That code is wrong or has expired. Check it, or ask for a new one.' }]
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+router.post('/reset-password', audit(ACTIONS.AUTH_PASSWORD_RESET, 'user'), authLimiter, validate({ body: resetPasswordSchema }), authzController.resetPassword);
+
+// Refreshing is routine (every client does it each time its access token expires), so the limit is far
+// looser than for logging in, while still stopping one address from guessing tokens at speed
+const sessionLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => env.isTest,
+    message: { success: false, message: 'Too many attempts, please try again later' },
+});
+
+/**
+ * @openapi
+ * /auth/refresh:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Exchange a refresh token for a new pair of tokens
+ *     description: >
+ *       Public: the access token has usually expired by the time this is called. A refresh token works once.
+ *       The response contains a new access token and a new refresh token, and the one that was sent stops working.
+ *       If a refresh token that was already exchanged is sent again more than a few seconds later, it is treated as
+ *       stolen and the whole login is ended, so both parties have to log in again.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
+ *     responses:
+ *       200:
+ *         description: A new access token and refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TokensResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         description: The refresh token is unknown, expired, already used, or its login was ended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               success: false
+ *               message: Your session has ended. Please log in again.
+ *       429:
+ *         description: More than 100 attempts from this IP in 15 minutes
+ */
+router.post('/refresh', sessionLimiter, validate({ body: refreshTokenSchema }), authzController.refresh);
+
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Log out
+ *     description: >
+ *       Public. Ends the login the refresh token belongs to, so it can no longer be refreshed; logins on other
+ *       devices are not affected. Succeeds even if the token is unknown or already ended. The access token keeps
+ *       working until it expires, which is why it is short-lived.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
+ *     responses:
+ *       204:
+ *         description: Logged out
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       429:
+ *         description: More than 100 attempts from this IP in 15 minutes
+ */
+router.post('/logout', audit(ACTIONS.AUTH_LOGOUT, 'user'), sessionLimiter, validate({ body: refreshTokenSchema }), authzController.logout);
 
 /**
  * @openapi
@@ -233,7 +395,8 @@ router.delete('/me/avatar', audit(ACTIONS.PROFILE_UPDATE, 'user'), protect, auth
  *     summary: Change your own password
  *     description: >
  *       Any logged-in user. Needs the current password, so an unlocked screen is not enough to take over an account.
- *       Tokens already issued keep working until they expire.
+ *       Every existing login is ended at once, on every device: their access tokens and refresh tokens stop working.
+ *       The response contains a new pair of tokens so the caller stays logged in.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -243,8 +406,12 @@ router.delete('/me/avatar', audit(ACTIONS.PROFILE_UPDATE, 'user'), protect, auth
  *           schema:
  *             $ref: '#/components/schemas/ChangePasswordRequest'
  *     responses:
- *       204:
- *         description: Password changed
+ *       200:
+ *         description: Password changed. Use the returned tokens from now on.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TokensResponse'
  *       400:
  *         description: The current password is wrong, or the new one is too short or the same as the old one
  *         content:

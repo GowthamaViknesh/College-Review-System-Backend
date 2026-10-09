@@ -39,6 +39,28 @@ describe('startup configuration', () => {
         expect(loadEnv).toThrow('Missing required environment variable: JWT_EXPIRES_IN');
     });
 
+    it('keeps people logged in for 7 days unless told otherwise, and rejects a lifetime that makes no sense', () => {
+        const loaded = () => {
+            let env: { refreshTokenDays: number } | undefined;
+            jest.isolateModules(() => {
+                jest.doMock('dotenv', () => ({ config: () => ({}) }));
+                env = require('../src/common/config/env').env;
+            });
+            return env!.refreshTokenDays;
+        };
+
+        delete process.env.REFRESH_TOKEN_EXPIRES_DAYS;
+        expect(loaded()).toBe(7);
+
+        process.env.REFRESH_TOKEN_EXPIRES_DAYS = '30';
+        expect(loaded()).toBe(30);
+
+        for (const bad of ['0', '-1', 'a week']) {
+            process.env.REFRESH_TOKEN_EXPIRES_DAYS = bad;
+            expect(loaded).toThrow('REFRESH_TOKEN_EXPIRES_DAYS must be a number of days greater than 0');
+        }
+    });
+
     it('treats image storage as optional, but refuses to start with only some of its settings', () => {
         const loaded = () => {
             let env: { cloudinary: unknown } | undefined;

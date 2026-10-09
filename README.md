@@ -98,13 +98,16 @@ All settings come from environment variables, read from `.env`. The server stops
 | `JWT_SECRET` | Yes | — | Signs login tokens. In production it must be at least 32 random characters. |
 | `PORT` | Yes | — | Port the server listens on. `5000` in `.env.example`; hosting platforms such as Render set it for you. |
 | `NODE_ENV` | No | — | `development` (readable logs), `test` or `production` (JSON logs and the signing-secret check) |
-| `JWT_EXPIRES_IN` | Yes | — | How long a login token lasts, e.g. `1d` or `12h` |
+| `JWT_EXPIRES_IN` | Yes | — | How long an access token lasts, e.g. `15m`. Keep it short: it cannot be cancelled once issued, and clients renew it with the refresh token. |
+| `REFRESH_TOKEN_EXPIRES_DAYS` | No | `7` | How many days someone stays logged in without using the site. Every renewal starts the period again. |
 | `CORS_ORIGIN` | No | `*` | The frontend address allowed to call the API from a browser. Several can be listed, separated by commas. |
 | `TRUST_PROXY` | No | off | Number of proxies in front of the server. Set to `1` on Render and similar platforms so the visitor's real IP address is used for rate limiting and the action log. |
 | `ACTION_LOG_RETENTION_DAYS` | No | `90` | How long action log entries are kept |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | No | `admin`, `admin@example.com`, `Password@123` | The admin created by `npm run seed` |
 | `SEED_DEMO_PASSWORD` | No | `Password@123` | Password of the accounts created by `npm run seed:demo` |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | No | — | Where uploaded pictures are stored (from the Cloudinary dashboard, under "API Keys"). Set all three or none. Without them only the upload endpoints are unavailable (503); with only some, the server refuses to start. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | — | The mail server that sends password reset codes. Set all four or none. For Gmail: `smtp.gmail.com`, `465`, your address, and an app password. Without them, in development the code is written to the server log; in production the forgot-password endpoint answers 503. |
+| `MAIL_FROM` | No | `College Reviews <SMTP_USER>` | The sender recipients see |
 | `KEEP_ALIVE_URL` | No | Render's own address when deployed there | The service's public address. When known, the server requests its own `/health` page on a timer so a free hosting plan does not put it to sleep. |
 | `KEEP_ALIVE_INTERVAL_SECONDS` | No | `600` | Seconds between keep-alive requests. `0` turns it off. |
 | `MONGO_PORT` | No | `27017` | The port on your machine that the Docker MongoDB is published on |
@@ -129,10 +132,14 @@ Every path is under `/api/v1`. Responses have one shape:
 | Method and path | Needs | What it does |
 |---|---|---|
 | `POST /auth/register` | Public | Create your own account. Always a student. |
-| `POST /auth/login` | Public | Returns the user and a token |
+| `POST /auth/login` | Public | Returns the user, an access token (`token`) and a refresh token |
+| `POST /auth/refresh` | Public | Exchange a refresh token for a new access token and refresh token |
+| `POST /auth/logout` | Public | End the login a refresh token belongs to. Recorded in the action log as `auth:logout`. |
+| `POST /auth/forgot-password` | Public | Email a 6-digit reset code, if the address has an account |
+| `POST /auth/reset-password` | Public | Set a new password with `email`, `code` and `newPassword` |
 | `GET /auth/me` | Logged in | The current user and the permissions their role grants |
 | `PATCH /auth/me` | Logged in | Change your own username or email |
-| `PATCH /auth/me/password` | Logged in | Change your own password (needs the current one) |
+| `PATCH /auth/me/password` | Logged in | Change your own password (needs the current one). Ends every login and returns a new pair of tokens. |
 | `PUT /auth/me/avatar` | Logged in | Upload or replace your profile picture (multipart form, field `image`) |
 | `DELETE /auth/me/avatar` | Logged in | Remove your profile picture |
 
@@ -213,6 +220,37 @@ Every change made through the API is recorded: who did it, what they did, to wha
 
 Entries cannot be edited or deleted through the API, never contain passwords or tokens, and are removed automatically after `ACTION_LOG_RETENTION_DAYS`.
 
+## Staying logged in
+
+Logging in returns two tokens.
+
+- The **access token** (`token`) is a JWT sent as `Authorization: Bearer ...` on every request. It lasts `JWT_EXPIRES_IN` (15 minutes is a good value) and cannot be cancelled, which is why it is short-lived.
+- The **refresh token** is a random value that is only ever sent to `POST /auth/refresh`, which returns a new pair. It lasts `REFRESH_TOKEN_EXPIRES_DAYS`. Only its SHA-256 hash is stored, so a copy of the database cannot be used to log in.
+
+What makes this safe to leave running:
+
+- **A refresh token works once.** Each refresh replaces it. If one that was already exchanged is presented again more than 10 seconds later, a copy of it is in someone else's hands; that whole login is ended, and both parties have to log in again. (Within 10 seconds a repeat is accepted, because two browser tabs or a retried request send the same token legitimately.)
+- **Logging out is real.** `POST /auth/logout` ends that login on the server. Other devices stay logged in.
+- **Changing the password ends every login on every device**, including access tokens that have not expired yet, and hands the caller a new pair.
+- **Deleting a user** removes their refresh tokens with the account.
+- Expired refresh tokens are removed by MongoDB itself (a TTL index).
+
+The tokens are returned in the response body rather than set as a cookie. The frontend and the API are deployed on different sites, and several browsers block cookies between sites, which would log those users out every time the access token expired.
+
+## Forgotten passwords
+
+`POST /auth/forgot-password` emails a 6-digit code; `POST /auth/reset-password` exchanges the code for a new password. Afterwards every existing login for the account is ended and the person logs in again.
+
+Six digits is only a million possibilities, so the rest is there to make guessing pointless:
+
+- The code lasts **10 minutes**, can be **tried 5 times** (right or wrong) and **works once**.
+- Asking again **replaces** the previous code, at most **once a minute** per account. Both endpoints also share the login rate limit (20 per IP every 15 minutes).
+- Only a keyed hash of the code is stored (HMAC with the server's secret), so the database alone cannot be used to check guesses.
+- **Nothing reveals who has an account.** Asking for a code gets the same answer for any address, and a wrong code, an expired code and an unknown address all get the same error.
+- The email is sent after the response, so a slow mail server does not give away which addresses are real. A failure to send is in the server log as `Password reset email could not be sent`.
+
+The email is `src/templates/password-reset.html`, a table-based layout with inline styles so it survives Gmail and Outlook, with a plain-text version alongside. `src/common/utils/mailer.ts` is the only file that knows about Nodemailer, and the build copies the template next to the compiled code.
+
 ## Pictures
 
 Users can have a profile picture and colleges a picture. The files are stored with [Cloudinary](https://cloudinary.com), not on the server, because a host like Render wipes its disk on every deploy. The database keeps only the address, which the API returns as `avatar` on a user and `image` on a college (`null` when there is none).
@@ -239,7 +277,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 222 tests in 15 files
+npm test                 # 278 tests in 18 files
 npm run test:coverage
 ```
 

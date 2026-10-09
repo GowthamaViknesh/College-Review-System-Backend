@@ -3,7 +3,10 @@
 export const ACTIONS = {
     AUTH_REGISTER: 'auth:register',
     AUTH_LOGIN: 'auth:login',
+    AUTH_LOGOUT: 'auth:logout',
     AUTH_PASSWORD_CHANGE: 'auth:password_change',
+    AUTH_PASSWORD_RESET_REQUEST: 'auth:password_reset_request',
+    AUTH_PASSWORD_RESET: 'auth:password_reset',
     PROFILE_UPDATE: 'profile:update',
 
     USER_CREATE: 'user:create',

@@ -38,12 +38,14 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
             type: new Schema<StoredImage>({ url: { type: String, required: true }, publicId: { type: String, required: true } }, { _id: false }),
             default: null,
         },
+        // Access tokens issued before this moment are refused
+        passwordChangedAt: { type: Date, default: null },
     },
     {
         timestamps: true,
         toJSON: {
             transform: (_doc, ret) => {
-                const { password, __v, avatar, ...user } = ret;
+                const { password, __v, avatar, passwordChangedAt, ...user } = ret;
                 // Clients get the picture's address only, never the id it is stored under
                 return { ...user, avatar: avatar?.url ?? null };
             },

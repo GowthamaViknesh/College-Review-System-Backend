@@ -42,6 +42,24 @@ export const changePasswordSchema = Joi.object({
     newPassword: password.required().invalid(Joi.ref('currentPassword')).messages({ 'any.invalid': '{{#label}} must be different from the current password' }),
 });
 
+export const refreshTokenSchema = Joi.object({
+    refreshToken: Joi.string().max(200).required(),
+});
+
+export const forgotPasswordSchema = Joi.object({
+    email: email.required(),
+});
+
+export const resetPasswordSchema = Joi.object({
+    email: email.required(),
+    code: Joi.string()
+        .trim()
+        .pattern(/^\d{6}$/)
+        .required()
+        .messages({ 'string.pattern.base': '{{#label}} must be the 6 digits from the email' }),
+    newPassword: password.required(),
+});
+
 export const loginSchema = Joi.object({
     email: email.required(),
     password: Joi.string().required(),
