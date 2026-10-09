@@ -17,6 +17,20 @@ export const login: RequestHandler = async (req, res) => {
     res.json({ success: true, data: { user, token } });
 };
 
+export const updateMe: RequestHandler = async (req, res) => {
+    setAudit(res, { targetId: req.user!.id, details: { changed: Object.keys(req.body) } });
+
+    const user = await authzService.updateProfile(req.user!.id, req.body);
+    res.json({ success: true, data: { user } });
+};
+
+export const changeMyPassword: RequestHandler = async (req, res) => {
+    setAudit(res, { targetId: req.user!.id });
+
+    await authzService.changePassword(req.user!.id, req.body.currentPassword, req.body.newPassword);
+    res.status(204).send();
+};
+
 // Returns who is logged in and what they may do, so a client can show or hide features
 export const me: RequestHandler = (req, res) => {
     const { role, ...user } = req.user!.toJSON();

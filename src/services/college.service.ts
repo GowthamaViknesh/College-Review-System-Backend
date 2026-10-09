@@ -9,8 +9,8 @@ async function ensureNameIsFree(name: string, exceptId?: string) {
     if (existing && existing.id !== exceptId) throw new ApiError(409, `A college named "${existing.name}" already exists`);
 }
 
-export async function listColleges({ page, limit, sort, ...filter }: ListCollegesQuery) {
-    const { colleges, total } = await collegeRepository.findPageWithStats(filter, sort, page, limit);
+export async function listColleges({ page, limit, sort, order, ...filter }: ListCollegesQuery) {
+    const { colleges, total } = await collegeRepository.findPageWithStats(filter, { sort, order }, page, limit);
     return { colleges, meta: paginationMeta(page, limit, total) };
 }
 

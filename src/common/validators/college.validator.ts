@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { COLLEGE_SORTS } from '../interfaces/college.interface';
+import { COLLEGE_SORTS, SORT_ORDERS } from '../interfaces/college.interface';
 
 const name = Joi.string().trim().min(2).max(150);
 const city = Joi.string().trim().min(2).max(80);
@@ -25,4 +25,5 @@ export const listCollegesQuerySchema = Joi.object({
     sort: Joi.string()
         .valid(...COLLEGE_SORTS)
         .default('newest'),
+    order: Joi.string().valid(...SORT_ORDERS),
 });

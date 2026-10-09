@@ -5,7 +5,7 @@ import { ACTIONS } from '../common/constants/actions';
 import { audit } from '../common/middlewares/audit.middleware';
 import { protect } from '../common/middlewares/auth.middleware';
 import { validate } from '../common/middlewares/validate.middleware';
-import { loginSchema, registerSchema } from '../common/validators/user.validator';
+import { changePasswordSchema, loginSchema, registerSchema, updateProfileSchema } from '../common/validators/user.validator';
 import * as authzController from '../controllers/authz.controller';
 
 const router = Router();
@@ -120,5 +120,69 @@ router.post('/login', audit(ACTIONS.AUTH_LOGIN, 'user'), authLimiter, validate({
  *         $ref: '#/components/responses/Unauthorized'
  */
 router.get('/me', protect, authzController.me);
+
+/**
+ * @openapi
+ * /auth/me:
+ *   patch:
+ *     tags: [Auth]
+ *     summary: Update your own username or email
+ *     description: Any logged-in user. Send only the fields you want to change. Your role cannot be changed here.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateProfileRequest'
+ *     responses:
+ *       200:
+ *         description: Your updated account
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       409:
+ *         $ref: '#/components/responses/Conflict'
+ */
+router.patch('/me', audit(ACTIONS.PROFILE_UPDATE, 'user'), protect, validate({ body: updateProfileSchema }), authzController.updateMe);
+
+/**
+ * @openapi
+ * /auth/me/password:
+ *   patch:
+ *     tags: [Auth]
+ *     summary: Change your own password
+ *     description: >
+ *       Any logged-in user. Needs the current password, so an unlocked screen is not enough to take over an account.
+ *       Tokens already issued keep working until they expire.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChangePasswordRequest'
+ *     responses:
+ *       204:
+ *         description: Password changed
+ *       400:
+ *         description: The current password is wrong, or the new one is too short or the same as the old one
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+router.patch('/me/password', audit(ACTIONS.AUTH_PASSWORD_CHANGE, 'user'), protect, authLimiter, validate({ body: changePasswordSchema }), authzController.changeMyPassword);
 
 export default router;

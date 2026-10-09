@@ -3,7 +3,7 @@ import { Types, type PipelineStage } from 'mongoose';
 import { College } from '../models/college.model';
 import { Review } from '../models/review.model';
 import { escapeRegex } from '../common/utils/utils';
-import { CollegeFilter, CollegeInput, CollegeSort, CollegeWithStats } from '../common/interfaces/college.interface';
+import { CollegeFilter, CollegeInput, CollegeSort, CollegeWithStats, SortOrder } from '../common/interfaces/college.interface';
 
 // Adds averageRating and reviewCount to each college by reading its reviews.
 // Every review counts: only people whose role allows reviewing can create one, and each
@@ -32,14 +32,34 @@ const WITH_REVIEW_STATS: PipelineStage[] = [
     { $project: { stats: 0, __v: 0 } },
 ];
 
-// _id is always the last key so the order is stable when the other values tie.
-// In a descending sort MongoDB puts null last, so unrated colleges follow rated ones.
-const SORTS: Record<CollegeSort, Record<string, 1 | -1>> = {
-    newest: { createdAt: -1, _id: -1 },
-    name: { name: 1, _id: 1 },
-    rating: { averageRating: -1, reviewCount: -1, _id: 1 },
-    reviews: { reviewCount: -1, averageRating: -1, _id: 1 },
+// The fields each sort uses, most important first, in the sort's natural direction:
+// names A-Z, everything else highest or newest first.
+const SORT_KEYS: Record<CollegeSort, [field: string, direction: 1 | -1][]> = {
+    newest: [['createdAt', -1]],
+    name: [['name', 1]],
+    rating: [
+        ['averageRating', -1],
+        ['reviewCount', -1],
+    ],
+    reviews: [
+        ['reviewCount', -1],
+        ['averageRating', -1],
+    ],
 };
+
+function buildSort(sort: CollegeSort, order?: SortOrder) {
+    const keys = SORT_KEYS[sort];
+    const natural: SortOrder = keys[0][1] === 1 ? 'asc' : 'desc';
+    const flip = order && order !== natural ? -1 : 1;
+
+    const result: Record<string, 1 | -1> = {};
+    // Colleges with no rating go last whichever way ratings are ordered; "lowest rated" should not start with them
+    if (sort === 'rating') result.unrated = 1;
+    for (const [field, direction] of keys) result[field] = (direction * flip) as 1 | -1;
+    // _id is always the last key so the order is stable when the other values tie
+    result._id = (keys[0][1] * flip) as 1 | -1;
+    return result;
+}
 
 const exactIgnoringCase = (text: string) => new RegExp(`^${escapeRegex(text)}$`, 'i');
 
@@ -54,7 +74,7 @@ function buildMatch({ search, city, state }: CollegeFilter) {
     return match;
 }
 
-export async function findPageWithStats(filter: CollegeFilter, sort: CollegeSort, pageNumber: number, pageSize: number) {
+export async function findPageWithStats(filter: CollegeFilter, { sort, order }: { sort: CollegeSort; order?: SortOrder }, pageNumber: number, pageSize: number) {
     const skips = pageSize * (pageNumber - 1);
 
     const [result] = await College.aggregate<{ colleges: CollegeWithStats[]; total: { count: number }[] }>([
@@ -62,7 +82,9 @@ export async function findPageWithStats(filter: CollegeFilter, sort: CollegeSort
         ...WITH_REVIEW_STATS,
         // Filtering on the average has to come after it has been calculated
         ...(filter.minRating ? [{ $match: { averageRating: { $gte: filter.minRating } } }] : []),
-        { $sort: SORTS[sort] },
+        { $addFields: { unrated: { $cond: [{ $eq: ['$averageRating', null] }, 1, 0] } } },
+        { $sort: buildSort(sort, order) },
+        { $unset: 'unrated' },
         // One round trip returns both the requested page and the total number of matches
         { $facet: { colleges: [{ $skip: skips }, { $limit: pageSize }], total: [{ $count: 'count' }] } },
     ]);

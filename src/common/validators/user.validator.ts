@@ -34,6 +34,14 @@ export const createUserSchema = Joi.object({
     role: roleName.default(DEFAULT_ROLE),
 });
 
+// Changing your own details: only the fields sent are changed. The role is not here; that needs role:assign.
+export const updateProfileSchema = Joi.object({ username, email }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
+
+export const changePasswordSchema = Joi.object({
+    currentPassword: Joi.string().required(),
+    newPassword: password.required().invalid(Joi.ref('currentPassword')).messages({ 'any.invalid': '{{#label}} must be different from the current password' }),
+});
+
 export const loginSchema = Joi.object({
     email: email.required(),
     password: Joi.string().required(),

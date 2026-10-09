@@ -37,6 +37,8 @@ export interface CreateUserRequest extends RegisterInput {
     role: string;
 }
 
+export type UpdateProfileInput = Partial<Pick<RegisterInput, 'username' | 'email'>>;
+
 export interface ListUsersQuery {
     page: number;
     limit: number;

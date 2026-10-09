@@ -253,6 +253,22 @@ const definition = {
                     password: { type: 'string', minLength: 8, maxLength: 72, example: 'Password@123' },
                 },
             },
+            UpdateProfileRequest: {
+                type: 'object',
+                minProperties: 1,
+                properties: {
+                    username: { type: 'string', minLength: 3, maxLength: 30, example: 'gowtham' },
+                    email: { type: 'string', format: 'email', example: 'gowtham@example.com' },
+                },
+            },
+            ChangePasswordRequest: {
+                type: 'object',
+                required: ['currentPassword', 'newPassword'],
+                properties: {
+                    currentPassword: { type: 'string', example: 'Password@123' },
+                    newPassword: { type: 'string', minLength: 8, maxLength: 72, example: 'NewPassword@456' },
+                },
+            },
             LoginRequest: {
                 type: 'object',
                 required: ['email', 'password'],

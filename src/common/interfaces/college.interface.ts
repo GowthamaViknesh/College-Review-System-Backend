@@ -28,6 +28,9 @@ export interface CollegeInput {
 export const COLLEGE_SORTS = ['newest', 'name', 'rating', 'reviews'] as const;
 export type CollegeSort = (typeof COLLEGE_SORTS)[number];
 
+export const SORT_ORDERS = ['asc', 'desc'] as const;
+export type SortOrder = (typeof SORT_ORDERS)[number];
+
 export interface CollegeFilter {
     search?: string;
     city?: string;
@@ -39,4 +42,6 @@ export interface ListCollegesQuery extends CollegeFilter {
     page: number;
     limit: number;
     sort: CollegeSort;
+    // Leave out for each sort's natural direction: name A-Z, everything else highest or newest first
+    order?: SortOrder;
 }

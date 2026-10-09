@@ -3,7 +3,7 @@ import type { Types } from 'mongoose';
 import { User } from '../models/user.model';
 import { escapeRegex } from '../common/utils/utils';
 import { IRole } from '../common/interfaces/role.interface';
-import { CreateUserInput, UserFilter } from '../common/interfaces/user.interface';
+import { CreateUserInput, UpdateProfileInput, UserFilter } from '../common/interfaces/user.interface';
 
 // In API responses a user's role is shown as { _id, name } instead of a bare id
 const ROLE_NAME = { path: 'role', select: 'name' };
@@ -52,6 +52,21 @@ export function findByIdWithAccess(id: string) {
 
 export function findByEmailOrUsername(email: string, username: string) {
     return User.findOne({ $or: [{ email }, { username }] });
+}
+
+// Someone other than this user who already has the email or username
+export function findOtherByEmailOrUsername(id: string, { email, username }: UpdateProfileInput) {
+    const taken = [...(email ? [{ email }] : []), ...(username ? [{ username }] : [])];
+    if (!taken.length) return null;
+    return User.findOne({ _id: { $ne: id }, $or: taken });
+}
+
+export function findByIdWithPassword(id: string) {
+    return User.findById(id).select('+password');
+}
+
+export function updateProfileById(id: string, fields: UpdateProfileInput) {
+    return User.findByIdAndUpdate(id, fields, { returnDocument: 'after', runValidators: true }).populate(ROLE_NAME);
 }
 
 export function findByEmailWithPassword(email: string) {

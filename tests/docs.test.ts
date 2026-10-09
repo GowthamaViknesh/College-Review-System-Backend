@@ -23,6 +23,8 @@ describe('API documentation', () => {
                 'POST /auth/register',
                 'POST /auth/login',
                 'GET /auth/me',
+                'PATCH /auth/me',
+                'PATCH /auth/me/password',
                 'POST /users',
                 'GET /users',
                 'GET /users/{id}',

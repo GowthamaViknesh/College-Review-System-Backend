@@ -45,6 +45,10 @@ const router = Router();
  *         in: query
  *         description: "`rating` = best rated first, `reviews` = most reviewed first"
  *         schema: { type: string, enum: [newest, name, rating, reviews], default: newest }
+ *       - name: order
+ *         in: query
+ *         description: Direction. Leave out for the natural one (names A-Z; everything else highest or newest first). Unrated colleges are always last when sorting by rating.
+ *         schema: { type: string, enum: [asc, desc] }
  *     responses:
  *       200:
  *         description: One page of colleges
