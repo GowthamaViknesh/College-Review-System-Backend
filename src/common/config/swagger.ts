@@ -36,6 +36,7 @@ const definition = {
         { name: 'Colleges', description: 'Colleges, each with an average rating calculated from its reviews' },
         { name: 'Reviews', description: 'Ratings and comments written by students' },
         { name: 'Action logs', description: 'A read-only record of who did what' },
+        { name: 'Stats', description: 'Summary figures for the dashboard' },
     ],
     components: {
         securitySchemes: {
@@ -202,6 +203,36 @@ const definition = {
                     path: { type: 'string', example: '/api/v1/users/66f1a2b3c4d5e6f7a8b9c0d6/role' },
                     statusCode: { type: 'integer', example: 200 },
                     createdAt: { type: 'string', format: 'date-time' },
+                },
+            },
+            StatsOverview: {
+                type: 'object',
+                properties: {
+                    totals: {
+                        type: 'object',
+                        properties: {
+                            colleges: { type: 'integer', example: 5 },
+                            reviews: { type: 'integer', example: 16 },
+                            averageRating: { type: 'number', nullable: true, example: 4.2, description: 'Mean of every review; null with no reviews' },
+                            myReviews: { type: 'integer', example: 3, description: 'Reviews written by the logged-in user' },
+                        },
+                    },
+                    reviewsPerDay: {
+                        type: 'array',
+                        description: 'The last 7 days, oldest first',
+                        items: {
+                            type: 'object',
+                            properties: { date: { type: 'string', example: '2026-10-09' }, count: { type: 'integer', example: 4 } },
+                        },
+                    },
+                    ratingDistribution: {
+                        type: 'array',
+                        description: 'Ratings 1 to 5, in order',
+                        items: {
+                            type: 'object',
+                            properties: { rating: { type: 'integer', example: 5 }, count: { type: 'integer', example: 6 } },
+                        },
+                    },
                 },
             },
             PaginationMeta: {

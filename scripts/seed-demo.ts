@@ -60,9 +60,14 @@ async function seedDemo() {
 
     const colleges = await College.insertMany(COLLEGES.map((college) => ({ ...college, createdBy: admin._id })));
 
+    // Dated across the last 7 days (rather than all "now") so the dashboard's activity chart has a shape
+    const DAY_MS = 24 * 60 * 60 * 1000;
     const reviews = RATINGS.flatMap((row, c) =>
         row.flatMap((rating, s) => (rating ? [{ college: colleges[c]._id, user: students[s]._id, rating, comment: COMMENTS[rating] }] : [])),
-    );
+    ).map((review, i) => {
+        const writtenAt = new Date(Date.now() - ((i * 3) % 7) * DAY_MS);
+        return { ...review, createdAt: writtenAt, updatedAt: writtenAt };
+    });
     await Review.insertMany(reviews);
 
     logger.info(`Created ${colleges.length} colleges, ${students.length} students (password ${PASSWORD}) and ${reviews.length} reviews`);

@@ -45,6 +45,7 @@ describe('API documentation', () => {
                 'PATCH /reviews/{id}',
                 'DELETE /reviews/{id}',
                 'GET /action-logs',
+                'GET /stats/overview',
             ].sort(),
         );
     });
