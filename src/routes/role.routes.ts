@@ -1,6 +1,8 @@
 import { Router } from 'express';
 
 import { PERMISSIONS } from '../common/constants/permissions';
+import { ACTIONS } from '../common/constants/actions';
+import { audit } from '../common/middlewares/audit.middleware';
 import * as roleController from '../controllers/role.controller';
 import { validate } from '../common/middlewares/validate.middleware';
 import { idParamSchema } from '../common/validators/user.validator';
@@ -105,7 +107,7 @@ router.get('/:id', requirePermission(PERMISSIONS.ROLE_READ), validate({ params: 
  *       409:
  *         $ref: '#/components/responses/Conflict'
  */
-router.post('/', requirePermission(PERMISSIONS.ROLE_CREATE), validate({ body: createRoleSchema }), roleController.createRole);
+router.post('/', audit(ACTIONS.ROLE_CREATE, 'role'), requirePermission(PERMISSIONS.ROLE_CREATE), validate({ body: createRoleSchema }), roleController.createRole);
 
 /**
  * @openapi
@@ -144,7 +146,13 @@ router.post('/', requirePermission(PERMISSIONS.ROLE_CREATE), validate({ body: cr
  *       409:
  *         $ref: '#/components/responses/Conflict'
  */
-router.patch('/:id', requirePermission(PERMISSIONS.ROLE_UPDATE), validate({ params: idParamSchema, body: updateRoleSchema }), roleController.updateRole);
+router.patch(
+    '/:id',
+    audit(ACTIONS.ROLE_UPDATE, 'role'),
+    requirePermission(PERMISSIONS.ROLE_UPDATE),
+    validate({ params: idParamSchema, body: updateRoleSchema }),
+    roleController.updateRole,
+);
 
 /**
  * @openapi
@@ -172,6 +180,6 @@ router.patch('/:id', requirePermission(PERMISSIONS.ROLE_UPDATE), validate({ para
  *       409:
  *         $ref: '#/components/responses/Conflict'
  */
-router.delete('/:id', requirePermission(PERMISSIONS.ROLE_DELETE), validate({ params: idParamSchema }), roleController.deleteRole);
+router.delete('/:id', audit(ACTIONS.ROLE_DELETE, 'role'), requirePermission(PERMISSIONS.ROLE_DELETE), validate({ params: idParamSchema }), roleController.deleteRole);
 
 export default router;

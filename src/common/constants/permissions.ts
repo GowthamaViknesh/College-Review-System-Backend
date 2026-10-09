@@ -18,6 +18,8 @@ export const PERMISSIONS = {
 
     REVIEW_CREATE: 'review:create',
     REVIEW_DELETE_ANY: 'review:delete:any',
+
+    LOG_READ: 'log:read',
 } as const;
 
 export type PermissionName = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -34,8 +36,9 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionName, string> = {
     'college:create': 'Add colleges',
     'college:update': 'Edit colleges',
     'college:delete': 'Delete colleges',
-    'review:create': 'Write reviews, and edit or delete your own',
+    'review:create': 'Write one review per college, and edit your own',
     'review:delete:any': "Delete any user's review (moderation)",
+    'log:read': 'View the action log: who did what, and what was refused',
 };
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS);

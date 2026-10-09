@@ -2,6 +2,7 @@ import os from 'node:os';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createStarterRoles, syncRoles } from '../../src/services/role.service';
+import { flushActionLogs } from '../../src/services/action-log.service';
 
 let mongo: MongoMemoryServer;
 
@@ -22,11 +23,14 @@ export async function connectTestDb() {
 
 // Wipes everything, then restores the roles so each test starts the same way
 export async function clearTestDb() {
+    // Action log entries are written after the response is sent; wait so none lands in the next test
+    await flushActionLogs();
     await Promise.all(Object.values(mongoose.connection.collections).map((c) => c.deleteMany({})));
     await seedRoles();
 }
 
 export async function closeTestDb() {
+    await flushActionLogs();
     await mongoose.disconnect();
     await mongo?.stop();
 }

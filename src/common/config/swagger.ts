@@ -1,6 +1,7 @@
 import path from 'node:path';
 import swaggerJsdoc from 'swagger-jsdoc';
 
+import { ALL_ACTIONS } from '../constants/actions';
 import { ALL_PERMISSIONS } from '../constants/permissions';
 
 const errorResponse = (description: string, message: string) => ({
@@ -20,6 +21,8 @@ const definition = {
             '',
             '**Trying it out:** call `POST /auth/login`, copy `data.token` from the response, click **Authorize** and paste it in.',
             '',
+            '**Public endpoints:** register, login, and reading colleges and reviews. Everything else needs a token.',
+            '',
             '**Access control:** every user has one role, and a role is a list of permissions. Each protected endpoint',
             'below states the permission it needs. Roles are managed through the `/roles` endpoints; the `admin` role',
             'always has every permission and cannot be changed.',
@@ -30,6 +33,9 @@ const definition = {
         { name: 'Auth', description: 'Sign up, log in and see who you are' },
         { name: 'Users', description: 'Manage user accounts' },
         { name: 'Roles', description: 'Manage roles and the permissions they grant' },
+        { name: 'Colleges', description: 'Colleges, each with an average rating calculated from its reviews' },
+        { name: 'Reviews', description: 'Ratings and comments written by students' },
+        { name: 'Action logs', description: 'A read-only record of who did what' },
     ],
     components: {
         securitySchemes: {
@@ -81,6 +87,121 @@ const definition = {
                     name: { $ref: '#/components/schemas/PermissionName' },
                     resource: { type: 'string', example: 'review' },
                     description: { type: 'string', example: 'Write reviews, and edit or delete your own' },
+                },
+            },
+            College: {
+                type: 'object',
+                properties: {
+                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d3' },
+                    name: { type: 'string', example: 'Anna University' },
+                    city: { type: 'string', example: 'Chennai' },
+                    state: { type: 'string', example: 'Tamil Nadu' },
+                    description: { type: 'string', example: 'Public state university founded in 1978' },
+                    createdBy: { type: 'string', description: 'Id of the user who added the college' },
+                    averageRating: { type: 'number', nullable: true, example: 4.3, description: 'Mean of all review ratings, 1 decimal; null with no reviews' },
+                    reviewCount: { type: 'integer', example: 12 },
+                    createdAt: { type: 'string', format: 'date-time' },
+                    updatedAt: { type: 'string', format: 'date-time' },
+                },
+            },
+            Review: {
+                type: 'object',
+                properties: {
+                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d4' },
+                    college: {
+                        type: 'object',
+                        properties: { _id: { type: 'string' }, name: { type: 'string', example: 'Anna University' } },
+                    },
+                    user: {
+                        type: 'object',
+                        properties: { _id: { type: 'string' }, username: { type: 'string', example: 'gowtham' } },
+                    },
+                    rating: { type: 'integer', minimum: 1, maximum: 5, example: 4 },
+                    comment: { type: 'string', example: 'Good faculty and placements, but the hostel needs work.' },
+                    createdAt: { type: 'string', format: 'date-time' },
+                    updatedAt: { type: 'string', format: 'date-time' },
+                },
+            },
+            CreateCollegeRequest: {
+                type: 'object',
+                required: ['name', 'city', 'state'],
+                properties: {
+                    name: { type: 'string', minLength: 2, maxLength: 150, example: 'Anna University' },
+                    city: { type: 'string', example: 'Chennai' },
+                    state: { type: 'string', example: 'Tamil Nadu' },
+                    description: { type: 'string', maxLength: 2000, example: 'Public state university founded in 1978' },
+                },
+            },
+            UpdateCollegeRequest: {
+                type: 'object',
+                minProperties: 1,
+                properties: {
+                    name: { type: 'string', example: 'Anna University, Chennai' },
+                    city: { type: 'string' },
+                    state: { type: 'string' },
+                    description: { type: 'string' },
+                },
+            },
+            CreateReviewRequest: {
+                type: 'object',
+                required: ['college', 'rating', 'comment'],
+                properties: {
+                    college: { type: 'string', description: 'College id', example: '66f1a2b3c4d5e6f7a8b9c0d3' },
+                    rating: { type: 'integer', minimum: 1, maximum: 5, example: 4 },
+                    comment: { type: 'string', minLength: 10, maxLength: 2000, example: 'Good faculty and placements, but the hostel needs work.' },
+                },
+            },
+            UpdateReviewRequest: {
+                type: 'object',
+                minProperties: 1,
+                properties: {
+                    rating: { type: 'integer', minimum: 1, maximum: 5, example: 5 },
+                    comment: { type: 'string', minLength: 10, maxLength: 2000, example: 'Updated after my final year: placements were excellent.' },
+                },
+            },
+            CollegeResponse: {
+                type: 'object',
+                properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'object', properties: { college: { $ref: '#/components/schemas/College' } } },
+                },
+            },
+            ReviewResponse: {
+                type: 'object',
+                properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'object', properties: { review: { $ref: '#/components/schemas/Review' } } },
+                },
+            },
+            ActionName: { type: 'string', enum: ALL_ACTIONS, example: 'role:assign' },
+            ActionLog: {
+                type: 'object',
+                properties: {
+                    _id: { type: 'string', example: '66f1a2b3c4d5e6f7a8b9c0d5' },
+                    actor: {
+                        type: 'object',
+                        description: 'Who did it. Both fields are null when nobody was logged in, e.g. a failed login.',
+                        properties: {
+                            id: { type: 'string', nullable: true, example: '66f1a2b3c4d5e6f7a8b9c0d2' },
+                            username: { type: 'string', nullable: true, example: 'admin' },
+                        },
+                    },
+                    action: { $ref: '#/components/schemas/ActionName' },
+                    outcome: { type: 'string', enum: ['success', 'denied', 'failed'], example: 'success' },
+                    target: {
+                        type: 'object',
+                        description: 'What it was done to',
+                        properties: {
+                            type: { type: 'string', enum: ['user', 'role', 'college', 'review'], example: 'user' },
+                            id: { type: 'string', nullable: true, example: '66f1a2b3c4d5e6f7a8b9c0d6' },
+                        },
+                    },
+                    details: { type: 'object', description: 'Facts specific to the action; includes "reason" when it was refused', example: { role: 'teacher' } },
+                    ip: { type: 'string', nullable: true, example: '203.0.113.7' },
+                    method: { type: 'string', example: 'PATCH' },
+                    path: { type: 'string', example: '/api/v1/users/66f1a2b3c4d5e6f7a8b9c0d6/role' },
+                    statusCode: { type: 'integer', example: 200 },
+                    createdAt: { type: 'string', format: 'date-time' },
                 },
             },
             PaginationMeta: {

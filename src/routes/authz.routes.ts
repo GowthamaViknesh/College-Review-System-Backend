@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { env } from '../common/config/env';
+import { ACTIONS } from '../common/constants/actions';
+import { audit } from '../common/middlewares/audit.middleware';
 import { protect } from '../common/middlewares/auth.middleware';
 import { validate } from '../common/middlewares/validate.middleware';
 import { loginSchema, registerSchema } from '../common/validators/user.validator';
@@ -47,7 +49,7 @@ const authLimiter = rateLimit({
  *       503:
  *         description: Registration is closed because an admin removed the `student` role
  */
-router.post('/register', authLimiter, validate({ body: registerSchema }), authzController.register);
+router.post('/register', audit(ACTIONS.AUTH_REGISTER, 'user'), authLimiter, validate({ body: registerSchema }), authzController.register);
 
 /**
  * @openapi
@@ -83,7 +85,7 @@ router.post('/register', authLimiter, validate({ body: registerSchema }), authzC
  *       429:
  *         $ref: '#/components/responses/TooManyRequests'
  */
-router.post('/login', authLimiter, validate({ body: loginSchema }), authzController.login);
+router.post('/login', audit(ACTIONS.AUTH_LOGIN, 'user'), authLimiter, validate({ body: loginSchema }), authzController.login);
 
 /**
  * @openapi

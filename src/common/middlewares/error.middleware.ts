@@ -42,5 +42,8 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     // Unexpected errors are logged in full but never leaked to the client
     if (statusCode >= 500) logger.error({ err }, 'Unhandled error');
 
+    // Lets the action log record why a request was refused
+    res.locals.errorMessage = message;
+
     res.status(statusCode).json({ success: false, message, ...(details && { errors: details }) });
 };

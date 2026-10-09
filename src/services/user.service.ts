@@ -1,5 +1,6 @@
 import * as roleRepository from '../repositories/role.repository';
 import * as userRepository from '../repositories/user.repository';
+import * as reviewRepository from '../repositories/review.repository';
 import { DEFAULT_ROLE } from '../common/constants/roles';
 import { PERMISSIONS } from '../common/constants/permissions';
 import { ApiError, paginationMeta, validationError } from '../common/utils/utils';
@@ -63,4 +64,7 @@ export async function deleteUser(actorId: string, id: string) {
 
     const user = await userRepository.deleteById(id);
     if (!user) throw new ApiError(404, 'User not found');
+
+    // A removed account should not keep influencing college ratings
+    await reviewRepository.deleteByUser(id);
 }

@@ -5,10 +5,10 @@ const email = Joi.string().trim().lowercase().email().max(254);
 // Roles are stored in the database, so here we only check the shape; services check that the role exists
 const roleName = Joi.string().trim().lowercase().max(30);
 
-export const objectId = Joi.string().hex().length(24).messages({
-    'string.hex': '{{#label}} must be a valid id',
-    'string.length': '{{#label}} must be a valid id',
-});
+// One pattern rather than .hex().length(24), so a bad id produces a single error instead of two
+export const objectId = Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .messages({ 'string.pattern.base': '{{#label}} must be a valid id' });
 
 export const idParamSchema = Joi.object({
     id: objectId.required(),

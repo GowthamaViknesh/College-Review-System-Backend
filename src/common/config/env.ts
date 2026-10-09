@@ -16,5 +16,7 @@ export const env = {
     jwtSecret: required('JWT_SECRET'),
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
     corsOrigin: process.env.CORS_ORIGIN || '*',
+    // How long action log entries are kept before MongoDB removes them
+    actionLogRetentionDays: Number(process.env.ACTION_LOG_RETENTION_DAYS) || 90,
     isTest: process.env.NODE_ENV === 'test',
 };

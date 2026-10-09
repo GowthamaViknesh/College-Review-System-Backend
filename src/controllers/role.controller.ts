@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import * as roleService from '../services/role.service';
+import { setAudit } from '../common/middlewares/audit.middleware';
 
 export const listPermissions: RequestHandler = (_req, res) => {
     const permissions = roleService.listPermissions();
@@ -17,11 +18,17 @@ export const getRole: RequestHandler<{ id: string }> = async (req, res) => {
 };
 
 export const createRole: RequestHandler = async (req, res) => {
+    setAudit(res, { details: { name: req.body.name, permissions: req.body.permissions } });
+
     const role = await roleService.createRole(req.body);
+    setAudit(res, { targetId: role.id });
     res.status(201).json({ success: true, data: { role } });
 };
 
 export const updateRole: RequestHandler<{ id: string }> = async (req, res) => {
+    // The validated body is exactly the set of fields being changed
+    setAudit(res, { details: req.body });
+
     const role = await roleService.updateRole(req.params.id, req.body);
     res.json({ success: true, data: { role } });
 };

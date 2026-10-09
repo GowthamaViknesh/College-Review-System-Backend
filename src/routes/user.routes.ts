@@ -1,6 +1,8 @@
 import { Router } from 'express';
 
 import { PERMISSIONS } from '../common/constants/permissions';
+import { ACTIONS } from '../common/constants/actions';
+import { audit } from '../common/middlewares/audit.middleware';
 import * as userController from '../controllers/user.controller';
 import { validate } from '../common/middlewares/validate.middleware';
 import { protect, requirePermission } from '../common/middlewares/auth.middleware';
@@ -43,7 +45,7 @@ router.use(protect);
  *       409:
  *         $ref: '#/components/responses/Conflict'
  */
-router.post('/', requirePermission(PERMISSIONS.USER_CREATE), validate({ body: createUserSchema }), userController.createUser);
+router.post('/', audit(ACTIONS.USER_CREATE, 'user'), requirePermission(PERMISSIONS.USER_CREATE), validate({ body: createUserSchema }), userController.createUser);
 
 /**
  * @openapi
@@ -160,7 +162,13 @@ router.get('/:id', requirePermission(PERMISSIONS.USER_READ), validate({ params: 
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.patch('/:id/role', requirePermission(PERMISSIONS.ROLE_ASSIGN), validate({ params: idParamSchema, body: assignRoleSchema }), userController.updateUserRole);
+router.patch(
+    '/:id/role',
+    audit(ACTIONS.ROLE_ASSIGN, 'user'),
+    requirePermission(PERMISSIONS.ROLE_ASSIGN),
+    validate({ params: idParamSchema, body: assignRoleSchema }),
+    userController.updateUserRole,
+);
 
 /**
  * @openapi
@@ -185,6 +193,6 @@ router.patch('/:id/role', requirePermission(PERMISSIONS.ROLE_ASSIGN), validate({
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.delete('/:id', requirePermission(PERMISSIONS.USER_DELETE), validate({ params: idParamSchema }), userController.deleteUser);
+router.delete('/:id', audit(ACTIONS.USER_DELETE, 'user'), requirePermission(PERMISSIONS.USER_DELETE), validate({ params: idParamSchema }), userController.deleteUser);
 
 export default router;

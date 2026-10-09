@@ -102,7 +102,7 @@ describe('GET /api/v1/auth/me', () => {
         expect(res.status).toBe(200);
         expect(res.body.data.user).toMatchObject({ email: user.email, role: { name: 'teacher' } });
         expect(res.body.data.user).not.toHaveProperty('password');
-        expect(res.body.data.permissions).toEqual(['college:create', 'college:update', 'review:create', 'user:create']);
+        expect(res.body.data.permissions).toEqual(['college:create', 'college:update', 'user:create']);
     });
 
     it('rejects a request with no token', async () => {

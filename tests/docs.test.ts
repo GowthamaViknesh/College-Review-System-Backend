@@ -34,11 +34,22 @@ describe('API documentation', () => {
                 'PATCH /roles/{id}',
                 'DELETE /roles/{id}',
                 'GET /permissions',
+                'GET /colleges',
+                'GET /colleges/{id}',
+                'POST /colleges',
+                'PATCH /colleges/{id}',
+                'DELETE /colleges/{id}',
+                'GET /reviews',
+                'GET /reviews/{id}',
+                'POST /reviews',
+                'PATCH /reviews/{id}',
+                'DELETE /reviews/{id}',
+                'GET /action-logs',
             ].sort(),
         );
     });
 
-    it('marks every endpoint except register and login as needing a token', async () => {
+    it('marks every endpoint as needing a token, except register, login and reading colleges and reviews', async () => {
         const res = await request(app).get('/api-docs.json');
         const open = Object.entries<Record<string, { security?: unknown[] }>>(res.body.paths)
             .flatMap(([path, methods]) => Object.entries(methods).map(([method, operation]) => ({ path, method, operation })))
@@ -46,6 +57,6 @@ describe('API documentation', () => {
             .map(({ method, path }) => `${method.toUpperCase()} ${path}`)
             .sort();
 
-        expect(open).toEqual(['POST /auth/login', 'POST /auth/register']);
+        expect(open).toEqual(['GET /colleges', 'GET /colleges/{id}', 'GET /reviews', 'GET /reviews/{id}', 'POST /auth/login', 'POST /auth/register']);
     });
 });
