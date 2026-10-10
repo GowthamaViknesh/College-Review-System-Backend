@@ -1,16 +1,6 @@
 import { Schema, model, type Types } from 'mongoose';
-
 import { generatePublicId } from '../common/utils/utils';
-
-export interface IPasswordReset {
-    passwordResetId: string;
-    user: Types.ObjectId;
-    codeHash: string;
-    attempts: number;
-    resetTokenHash: string | null;
-    sentAt: Date;
-    expiresAt: Date;
-}
+import { IPasswordReset } from '../common/interfaces/user.interface';
 
 const passwordResetSchema = new Schema<IPasswordReset>({
     passwordResetId: {
