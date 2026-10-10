@@ -3,7 +3,6 @@ import { publicId } from './user.validator';
 import { REVIEW_SORTS } from '../interfaces/review.interface';
 
 const rating = Joi.number().integer().min(1).max(5);
-// A minimum length keeps out empty "ok" reviews that carry a rating but no information
 const comment = Joi.string().trim().min(10).max(2000);
 
 export const createReviewSchema = Joi.object({
@@ -12,7 +11,6 @@ export const createReviewSchema = Joi.object({
     comment: comment.required(),
 });
 
-// The college and the author of a review can never be changed
 export const updateReviewSchema = Joi.object({ rating, comment }).min(1).messages({ 'object.min': 'Provide at least one field to update' });
 
 export const listReviewsQuerySchema = Joi.object({

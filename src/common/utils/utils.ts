@@ -1,4 +1,5 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
+import { customAlphabet } from 'nanoid';
 import { env } from '../config/env';
 
 export interface ErrorDetail {
@@ -6,7 +7,6 @@ export interface ErrorDetail {
     message: string;
 }
 
-// An expected, client-facing error; anything else reaching the error handler is treated as a 500
 export class ApiError extends Error {
     constructor(
         public statusCode: number,
@@ -18,17 +18,12 @@ export class ApiError extends Error {
     }
 }
 
-// A 400 in the same shape Joi validation errors use, for checks that need the database
 export function validationError(field: string, message: string): ApiError {
     return new ApiError(400, 'Validation failed', [{ field, message }]);
 }
 
-// The token only identifies the user. Role and permissions are read from the database on each
-// request, so a role change takes effect immediately instead of when the token expires.
 export interface TokenPayload {
-    // The user's public id (userId)
     sub: string;
-    // When the token was issued, in seconds. Added by the signing library.
     iat?: number;
 }
 
@@ -40,7 +35,6 @@ export function verifyToken(token: string): TokenPayload {
     return jwt.verify(token, env.jwtSecret) as unknown as TokenPayload;
 }
 
-// Escape user input before using it inside a RegExp (prevents regex injection / ReDoS)
 export function escapeRegex(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -48,3 +42,9 @@ export function escapeRegex(text: string): string {
 export function paginationMeta(page: number, limit: number, total: number) {
     return { page, limit, total, totalPages: Math.ceil(total / limit) };
 }
+
+const PUBLIC_ID_LENGTH = 16;
+const PUBLIC_ID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+export const PUBLIC_ID_PATTERN = new RegExp(`^[0-9A-Za-z]{${PUBLIC_ID_LENGTH}}$`);
+
+export const generatePublicId = customAlphabet(PUBLIC_ID_ALPHABET, PUBLIC_ID_LENGTH);

@@ -353,7 +353,7 @@ Every record has two ids.
 
 An ObjectId contains the time the record was created and a counter, so ids can be guessed from one another and reveal how much data there is and when it was added. A random id reveals nothing.
 
-Each model declares its own id field in its schema; the generator they share is in `src/common/utils/public-id.ts`. A database that was in use before public ids existed needs nothing done by hand: at every startup the server gives an id to any record that lacks one.
+Each model declares its own id field in its schema; the generator they share is in `src/common/utils/utils.ts`. A database that was in use before public ids existed needs nothing done by hand: at every startup the server gives an id to any record that lacks one.
 
 ## Pictures
 

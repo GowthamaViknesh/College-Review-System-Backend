@@ -2,8 +2,6 @@ import Joi from 'joi';
 import { COLLEGE_SORTS, SORT_ORDERS } from '../interfaces/college.interface';
 
 const name = Joi.string().trim().min(2).max(150);
-// Names, as picked from the country, state and city lists in the frontend. The API does not hold those
-// lists itself, so here they are only checked for being sensible text.
 const country = Joi.string().trim().min(2).max(80);
 const state = Joi.string().trim().min(2).max(80);
 const city = Joi.string().trim().min(2).max(80);

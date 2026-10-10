@@ -1,14 +1,15 @@
 import { Router } from 'express';
 
-import { PERMISSIONS } from '../common/constants/permissions';
 import { ACTIONS } from '../common/constants/actions';
+import { PERMISSIONS } from '../common/constants/permissions';
 import { audit } from '../common/middlewares/audit.middleware';
-import * as collegeController from '../controllers/college.controller';
-import { validate } from '../common/middlewares/validate.middleware';
-import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { idParamSchema } from '../common/validators/user.validator';
+import { validate } from '../common/middlewares/validate.middleware';
 import { protect, requirePermission } from '../common/middlewares/auth.middleware';
+import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { createCollegeSchema, listCollegesQuerySchema, updateCollegeSchema } from '../common/validators/college.validator';
+
+import * as collegeController from '../controllers/college.controller';
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import { Schema, model, type HydratedDocument } from 'mongoose';
 
-import { generatePublicId } from '../common/utils/public-id';
+import { generatePublicId } from '../common/utils/utils';
 import { IRole } from '../common/interfaces/role.interface';
 import { ALL_PERMISSIONS } from '../common/constants/permissions';
 
@@ -8,12 +8,10 @@ export type RoleDocument = HydratedDocument<IRole>;
 
 const roleSchema = new Schema<IRole>(
     {
-        // The id the API uses for this record. Created with it, and never changed afterwards.
         roleId: {
             type: String,
             required: true,
             unique: true,
-            // Records with no id yet are left out of the unique index instead of colliding on "missing"
             sparse: true,
             immutable: true,
             trim: true,
@@ -31,7 +29,6 @@ const roleSchema = new Schema<IRole>(
             default: '',
             trim: true,
         },
-        // Permission names granted by this role. Only names defined in code are accepted.
         permissions: [
             {
                 type: String,

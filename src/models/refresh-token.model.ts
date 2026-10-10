@@ -1,18 +1,14 @@
 import { Schema, model } from 'mongoose';
 
-import { generatePublicId } from '../common/utils/public-id';
+import { generatePublicId } from '../common/utils/utils';
 import { IRefreshToken } from '../common/interfaces/refresh-token.interface';
 
-// One row per refresh token ever issued and not yet expired. A token that has been exchanged is kept
-// (with usedAt set) until it expires, which is how a second use of it is recognised.
 const refreshTokenSchema = new Schema<IRefreshToken>(
     {
-        // The id the API uses for this record. Created with it, and never changed afterwards.
         refreshTokenId: {
             type: String,
             required: true,
             unique: true,
-            // Records with no id yet are left out of the unique index instead of colliding on "missing"
             sparse: true,
             immutable: true,
             trim: true,
@@ -27,7 +23,6 @@ const refreshTokenSchema = new Schema<IRefreshToken>(
     { timestamps: { createdAt: true, updatedAt: false } },
 );
 
-// MongoDB removes each row by itself once its expiry time has passed (a TTL index)
 refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const RefreshToken = model<IRefreshToken>('RefreshToken', refreshTokenSchema);

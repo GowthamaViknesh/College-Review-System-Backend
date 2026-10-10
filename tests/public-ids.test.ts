@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import app from '../src/app';
-import { PUBLIC_ID_PATTERN, generatePublicId } from '../src/common/utils/public-id';
+import { PUBLIC_ID_PATTERN, generatePublicId } from '../src/common/utils/utils';
 import { ActionLog } from '../src/models/action-log.model';
 import { College } from '../src/models/college.model';
 import { PasswordReset } from '../src/models/password-reset.model';

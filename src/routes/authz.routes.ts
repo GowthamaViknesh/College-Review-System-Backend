@@ -1,18 +1,20 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+
 import { env } from '../common/config/env';
 import { ACTIONS } from '../common/constants/actions';
 import { audit } from '../common/middlewares/audit.middleware';
 import { protect } from '../common/middlewares/auth.middleware';
-import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
 import { validate } from '../common/middlewares/validate.middleware';
+import { imageUpload, uploadLimiter } from '../common/middlewares/upload.middleware';
+
+import * as authzController from '../controllers/authz.controller';
+
 import { forgotPasswordSchema, resetPasswordSchema, verifyResetCodeSchema } from '../common/validators/user.validator';
 import { changePasswordSchema, loginSchema, refreshTokenSchema, registerSchema, updateProfileSchema } from '../common/validators/user.validator';
-import * as authzController from '../controllers/authz.controller';
 
 const router = Router();
 
-// Slows down password guessing and mass sign-ups: 20 attempts per IP every 15 minutes
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,

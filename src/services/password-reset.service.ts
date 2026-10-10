@@ -1,45 +1,29 @@
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
-import { env } from '../common/config/env';
-import logger from '../common/config/logger';
-import { isMailConfigured, sendPasswordResetEmail } from '../common/utils/mailer';
-import { ApiError, validationError } from '../common/utils/utils';
-import * as passwordResetRepository from '../repositories/password-reset.repository';
-import * as userRepository from '../repositories/user.repository';
 import { endAllSessions } from './session.service';
 
-// Forgotten password, in three steps:
-//   1. ask for a code: a 6-digit code is emailed to the account's address;
-//   2. enter the code: if it is right, it is exchanged for a one-time reset token;
-//   3. choose a new password, presenting that token.
-// Whoever can read the inbox may set a new password. Six digits is only a million possibilities, so
-// step 2 exists to make guessing hopeless: the code is short-lived, can be tried a handful of times,
-// works once, and is replaced whenever a new one is asked for. The token in step 3 is long and random,
-// so it needs no such limits, only a short life.
+import { env } from '../common/config/env';
+import logger from '../common/config/logger';
+import { ApiError, validationError } from '../common/utils/utils';
+import { isMailConfigured, sendPasswordResetEmail } from '../common/utils/mailer';
+
+import * as userRepository from '../repositories/user.repository';
+import * as passwordResetRepository from '../repositories/password-reset.repository';
 
 export const RESET_CODE_MINUTES = 10;
 export const RESET_MAX_ATTEMPTS = 5;
-// One email a minute per account, so the form cannot be used to flood someone's inbox
 export const RESET_RESEND_SECONDS = 60;
-// How long someone has to choose a new password after entering the code
 export const RESET_TOKEN_MINUTES = 10;
 
-// Keyed with the server's secret and tied to the user, so the stored value is useless to anyone who
-// obtains the database: without the key, they cannot even check a guess against it
 const hashCode = (userId: string, code: string) => createHmac('sha256', env.jwtSecret).update(`${userId}:${code}`).digest('hex');
 
-// The reset token is 32 random bytes, far too many to guess, so a plain hash is enough to keep it out of the database
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 const sameHash = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-// One answer for every failure, so a guesser cannot tell a wrong code from an expired one or from an unknown email
 const invalidCode = () => validationError('code', 'That code is wrong or has expired. Check it, or ask for a new one.');
 
-// Returns the user a code was sent to, or null when nothing was sent. The caller answers the same
-// either way: whether an email address has an account here is nobody else's business.
 export async function requestPasswordReset(email: string) {
-    // In development the code is written to the server log instead, so the flow can be tried without a mail account
     if (!isMailConfigured() && env.nodeEnv !== 'development' && !env.isTest) {
         throw new ApiError(503, 'Password reset by email is not set up on this server');
     }
@@ -63,20 +47,16 @@ export async function requestPasswordReset(email: string) {
         return user;
     }
 
-    // Not waited for. Sending takes seconds, and a reply that is slow only for real accounts would
-    // give away which addresses have one. A failure is logged for whoever runs the server.
     sendPasswordResetEmail({ to: user.email, name: user.username, code, minutes: RESET_CODE_MINUTES }).catch((err) => {
         logger.error({ err }, 'Password reset email could not be sent');
     });
     return user;
 }
 
-// Step 2. Returns the token that step 3 needs. The password is not touched here.
 export async function verifyResetCode(email: string, code: string) {
     const user = await userRepository.findByEmailWithPassword(email);
     if (!user) throw invalidCode();
 
-    // Counted before the code is looked at, so every try uses one up whether it is right or wrong
     const reset = await passwordResetRepository.useAttempt(user.id, RESET_MAX_ATTEMPTS, new Date());
     if (!reset) throw invalidCode();
 
@@ -85,29 +65,24 @@ export async function verifyResetCode(email: string, code: string) {
 
     const resetToken = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + RESET_TOKEN_MINUTES * 60 * 1000);
-    // A code works once: if two requests arrive with it together, only one gets past this line
     if (!(await passwordResetRepository.exchangeCodeForToken(user.id, codeHash, hashToken(resetToken), expiresAt))) throw invalidCode();
 
     return { resetToken, expiresInMinutes: RESET_TOKEN_MINUTES };
 }
 
-// Step 3
 export async function resetPassword(resetToken: string, newPassword: string) {
     const expired = () => validationError('resetToken', 'This password reset has expired or was already used. Ask for a new code.');
 
-    // Taken out of the database as it is checked, so the token works once
     const reset = await passwordResetRepository.consumeToken(hashToken(resetToken), new Date());
     if (!reset) throw expired();
 
     const user = await userRepository.findByIdWithPassword(String(reset.user));
     if (!user) throw expired();
 
-    // Saving (rather than an update query) runs the model hook that hashes the password
     user.password = newPassword;
     user.passwordChangedAt = new Date();
     await user.save();
 
-    // Whoever was logged in with the forgotten (or stolen) password is logged out everywhere
     await endAllSessions(user.id);
     return user;
 }

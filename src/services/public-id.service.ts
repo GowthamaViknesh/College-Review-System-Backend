@@ -1,7 +1,7 @@
 import type { Model } from 'mongoose';
 
 import logger from '../common/config/logger';
-import { generatePublicId } from '../common/utils/public-id';
+import { generatePublicId } from '../common/utils/utils';
 import { ActionLog } from '../models/action-log.model';
 import { College } from '../models/college.model';
 import { PasswordReset } from '../models/password-reset.model';
@@ -10,7 +10,6 @@ import { Review } from '../models/review.model';
 import { Role } from '../models/role.model';
 import { User } from '../models/user.model';
 
-// Every model and the name of its public id field
 const PUBLIC_IDS: [model: Model<any>, field: string][] = [
     [User, 'userId'],
     [Role, 'roleId'],
