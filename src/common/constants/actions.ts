@@ -23,6 +23,8 @@ export const ACTIONS = {
     REVIEW_CREATE: 'review:create',
     REVIEW_UPDATE: 'review:update',
     REVIEW_DELETE: 'review:delete',
+    REVIEW_UPVOTE: 'review:upvote',
+    REVIEW_UPVOTE_REMOVE: 'review:upvote:remove',
 } as const;
 
 export type ActionName = (typeof ACTIONS)[keyof typeof ACTIONS];

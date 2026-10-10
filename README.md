@@ -303,11 +303,15 @@ Responses have one shape:
 
 | Method and path | Needs | What it does |
 |---|---|---|
-| `GET /reviews` | Public | List. Query: `page`, `limit`, `college`, `user`, `minRating`, `maxRating`, `search`, `sort` (`newest`, `oldest`, `highest`, `lowest`). |
+| `GET /reviews` | Public | List. Query: `page`, `limit`, `college`, `user`, `minRating`, `maxRating`, `search`, `sort` (`newest`, `oldest`, `highest`, `lowest`, `helpful` for most upvoted). |
 | `GET /reviews/:id` | Public | One review |
 | `POST /reviews` | `review:create` | Review a college. One per person per college. |
 | `PATCH /reviews/:id` | `review:create`, and it must be yours | Edit your own review |
 | `DELETE /reviews/:id` | It is yours, or `review:delete:any` | Delete a review |
+| `POST /reviews/:id/upvote` | `review:create`, and it must not be yours | Upvote a review. Once per person; upvoting again changes nothing. |
+| `DELETE /reviews/:id/upvote` | `review:create` | Take back your upvote |
+
+Every review carries `votes: { count, userIds }`: how many upvotes it has and the `userId` of each person who gave one.
 
 ### Users, roles and logs
 

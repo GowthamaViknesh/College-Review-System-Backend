@@ -39,6 +39,17 @@ const reviewSchema = new Schema<IReview>(
             required: [true, 'Comment is required'],
             trim: true,
         },
+        votes: {
+            count: {
+                type: Number,
+                default: 0,
+                min: 0,
+            },
+            userIds: {
+                type: [String],
+                default: [],
+            },
+        },
     },
     {
         timestamps: true,

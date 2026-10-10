@@ -156,6 +156,14 @@ const definition = {
                     },
                     rating: { type: 'integer', minimum: 1, maximum: 5, example: 4 },
                     comment: { type: 'string', example: 'Good faculty and placements, but the hostel needs work.' },
+                    votes: {
+                        type: 'object',
+                        description: 'Upvotes from other reviewers',
+                        properties: {
+                            count: { type: 'integer', example: 3 },
+                            userIds: { type: 'array', items: { type: 'string' }, description: 'userId of each person who upvoted', example: ['T7nKp2LmQ9xWc4Vb'] },
+                        },
+                    },
                     createdAt: { type: 'string', format: 'date-time' },
                     updatedAt: { type: 'string', format: 'date-time' },
                 },
