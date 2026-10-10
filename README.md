@@ -6,6 +6,25 @@ College Review System is a REST API where students rate and review colleges, tea
 
 It is built with Node.js, Express 5 and TypeScript on MongoDB (Mongoose). Requests are validated with Joi, passwords are hashed with bcrypt, logins use JWT access tokens with rotating refresh tokens, and the API is covered by 351 integration tests written with Jest and Supertest.
 
+## Live App Link & Credentials
+
+**Live app:** https://college-review-system.vercel.app
+
+Log in with one of these accounts to see what each role can do:
+
+| Role | Name | Email | Password |
+|---|---|---|---|
+| Admin | Gowtham | `gowtham@yopmail.com` | `Admin@123` |
+| Teacher | Karthick | `karthick@yopmail.com` | `admin@123` |
+| Student | John Doe | `john@yopmail.com` | `admin@123` |
+| Student | Priya Sharwani | `priya@yopmail.com` | `admin@123` |
+
+- **Admin** sees every page: colleges, all users, roles and the action log.
+- **Teacher** belongs to Christian Medical College, and on the Users page sees and creates only that college's students.
+- **Student** belongs to Christian Medical College, and can write one review per college.
+
+A new student account can also be created from the app's sign-up page.
+
 ## Links
 
 | | |
@@ -13,7 +32,6 @@ It is built with Node.js, Express 5 and TypeScript on MongoDB (Mongoose). Reques
 | Live API | https://college-review-system-backend.onrender.com/health |
 | API documentation (Swagger UI) | https://college-review-system-backend.onrender.com/api-docs/ |
 | OpenAPI document (for Postman and other tools) | https://college-review-system-backend.onrender.com/api-docs.json |
-| Live frontend | https://college-review-system.vercel.app |
 | Backend repository | https://github.com/GowthamaViknesh/College-Review-System-Backend |
 | Frontend repository | https://github.com/GowthamaViknesh/College-Review-System-Frontend |
 

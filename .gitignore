@@ -3,3 +3,6 @@ dist/
 coverage/
 .env
 *.log
+
+# Database exports: they contain emails and password hashes
+*.users.json
