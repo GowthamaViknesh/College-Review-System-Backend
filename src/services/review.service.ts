@@ -65,12 +65,12 @@ export async function upvoteReview(actor: { id: string; userId: string }, id: st
     const review = await findReview(id);
     if (review.user?._id.toString() === actor.id) throw new ApiError(403, 'You cannot upvote your own review');
 
-    await reviewRepository.addVote(id, actor.userId);
-    return findReview(id);
+    const { modifiedCount } = await reviewRepository.addVote(id, actor.userId);
+    return { review: await findReview(id), changed: modifiedCount > 0 };
 }
 
 export async function removeUpvote(actor: { userId: string }, id: string) {
     await findReview(id);
-    await reviewRepository.removeVote(id, actor.userId);
-    return findReview(id);
+    const { modifiedCount } = await reviewRepository.removeVote(id, actor.userId);
+    return { review: await findReview(id), changed: modifiedCount > 0 };
 }

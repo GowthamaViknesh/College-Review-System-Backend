@@ -1,5 +1,6 @@
 import request from 'supertest';
 import app from '../src/app';
+import { ActionLog } from '../src/models/action-log.model';
 import { Review } from '../src/models/review.model';
 import { createUser } from './helpers/auth';
 import { createCollege } from './helpers/data';
@@ -137,6 +138,59 @@ describe('DELETE /api/v1/reviews/:id/upvote', () => {
     it('answers 404 for a review that does not exist', async () => {
         const voter = await createUser('student');
         expect((await takeBack(voter.auth, UNKNOWN_ID)).status).toBe(404);
+    });
+});
+
+describe('upvotes in the action log', () => {
+    // Entries are written after the response has gone, so wait until the expected number has arrived
+    async function logged(count: number) {
+        for (let tries = 0; tries < 50; tries += 1) {
+            const entries = await ActionLog.find({ action: /^review:upvote/ }).sort({ createdAt: 1, _id: 1 });
+            if (entries.length >= count) return entries;
+            await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        return ActionLog.find({ action: /^review:upvote/ }).sort({ createdAt: 1, _id: 1 });
+    }
+
+    it('records an upvote and taking it back, against the review', async () => {
+        const { review } = await writeReview();
+        const voter = await createUser('student');
+
+        await upvote(voter.auth, review.reviewId);
+        await logged(1);
+        await takeBack(voter.auth, review.reviewId);
+
+        const entries = await logged(2);
+        expect(entries.map((e) => `${e.action} ${e.outcome}`)).toEqual(['review:upvote success', 'review:upvote:remove success']);
+        expect(entries[0]).toMatchObject({ actor: { id: voter.user.userId }, target: { type: 'review', id: review.reviewId } });
+    });
+
+    it('records a refused upvote: your own review, or no permission', async () => {
+        const { author, review } = await writeReview();
+        const teacher = await createUser('teacher');
+
+        await upvote(author.auth, review.reviewId);
+        await logged(1);
+        await upvote(teacher.auth, review.reviewId);
+
+        const entries = await logged(2);
+        expect(entries.map((e) => `${e.action} ${e.outcome}`)).toEqual(['review:upvote denied', 'review:upvote denied']);
+        expect(entries[0]).toMatchObject({ actor: { id: author.user.userId }, details: { reason: 'You cannot upvote your own review' } });
+        expect(entries[1].actor.id).toBe(teacher.user.userId);
+    });
+
+    it('leaves out clicks that changed nothing', async () => {
+        const { review } = await writeReview();
+        const voter = await createUser('student');
+        const other = await createUser('student');
+
+        await upvote(voter.auth, review.reviewId);
+        await logged(1);
+        await upvote(voter.auth, review.reviewId);
+        await takeBack(other.auth, review.reviewId);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect((await logged(1)).map((e) => e.action)).toEqual(['review:upvote']);
     });
 });
 

@@ -236,7 +236,14 @@ router.delete('/:id', audit(ACTIONS.REVIEW_DELETE, 'review'), protect, validate(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.post('/:id/upvote', protect, requirePermission(PERMISSIONS.REVIEW_CREATE), validate({ params: idParamSchema }), reviewController.upvoteReview);
+router.post(
+    '/:id/upvote',
+    audit(ACTIONS.REVIEW_UPVOTE, 'review'),
+    protect,
+    requirePermission(PERMISSIONS.REVIEW_CREATE),
+    validate({ params: idParamSchema }),
+    reviewController.upvoteReview,
+);
 
 /**
  * @openapi
@@ -265,6 +272,13 @@ router.post('/:id/upvote', protect, requirePermission(PERMISSIONS.REVIEW_CREATE)
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.delete('/:id/upvote', protect, requirePermission(PERMISSIONS.REVIEW_CREATE), validate({ params: idParamSchema }), reviewController.removeUpvote);
+router.delete(
+    '/:id/upvote',
+    audit(ACTIONS.REVIEW_UPVOTE_REMOVE, 'review'),
+    protect,
+    requirePermission(PERMISSIONS.REVIEW_CREATE),
+    validate({ params: idParamSchema }),
+    reviewController.removeUpvote,
+);
 
 export default router;

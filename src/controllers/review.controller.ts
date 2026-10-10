@@ -33,11 +33,14 @@ export const deleteReview: RequestHandler<{ id: string }> = async (req, res) => 
 };
 
 export const upvoteReview: RequestHandler<{ id: string }> = async (req, res) => {
-    const review = await reviewService.upvoteReview(req.user!, req.params.id);
+    const { review, changed } = await reviewService.upvoteReview(req.user!, req.params.id);
+    // A repeated upvote changed nothing, so it has no place in the action log
+    setAudit(res, { skip: !changed });
     res.json({ success: true, data: { review } });
 };
 
 export const removeUpvote: RequestHandler<{ id: string }> = async (req, res) => {
-    const review = await reviewService.removeUpvote(req.user!, req.params.id);
+    const { review, changed } = await reviewService.removeUpvote(req.user!, req.params.id);
+    setAudit(res, { skip: !changed });
     res.json({ success: true, data: { review } });
 };
