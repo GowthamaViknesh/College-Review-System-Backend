@@ -22,7 +22,7 @@ export const STARTER_ROLES: StarterRole[] = [
         name: 'teacher',
         description: 'Can add and edit colleges, and create and see the students of their own college',
         // No review:create: ratings are meant to come from students, so teachers manage colleges but do not review them
-        permissions: [PERMISSIONS.COLLEGE_CREATE, PERMISSIONS.COLLEGE_UPDATE, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_READ_COLLEGE],
+        permissions: [PERMISSIONS.COLLEGE_CREATE, PERMISSIONS.COLLEGE_UPDATE, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_READ],
     },
     {
         name: DEFAULT_ROLE,

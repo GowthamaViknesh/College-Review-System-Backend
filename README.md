@@ -191,10 +191,10 @@ Every user has one **role**, and a role is a list of **permissions**. Endpoints 
 
 | Permission | Admin | Teacher | Student |
 |---|:-:|:-:|:-:|
-| `user:read`, `user:delete` | ✓ | | |
+| `user:read` | ✓ | ✓ (own college's students) | |
+| `user:delete` | ✓ | | |
 | `user:create` | ✓ | ✓ (students only) | |
 | `user:update` | ✓ | | |
-| `user:read:college` | | ✓ | |
 | `role:read`, `role:create`, `role:update`, `role:delete`, `role:assign` | ✓ | | |
 | `college:create`, `college:update` | ✓ | ✓ | |
 | `college:delete` | ✓ | | |
@@ -232,8 +232,9 @@ Every teacher and student belongs to one college; administrators belong to none.
 
 That membership is what limits a teacher:
 
-- **Creating accounts.** Without `role:assign`, `user:create` makes student accounts only, and they join the creator's own college.
-- **Seeing accounts.** `user:read:college` lists the students of your own college and nobody else. Other accounts are reported as not found, and the `role` and `college` filters cannot widen the list. `user:read` (admins) still sees everyone.
+- **One rule for every user permission.** Without `role:assign`, `user:read`, `user:create`, `user:update` and `user:delete` reach only the students of your own college. Granting a teacher more of them lets the teacher do more to their own students, and nothing to another college's students, to other teachers or to administrators. With `role:assign` the same permissions reach everyone.
+- **Creating accounts.** Under that rule, `user:create` makes student accounts only, and they join the creator's own college.
+- **Seeing accounts.** `user:read` lists your own college's students and nobody else. Other accounts are reported as not found, and the `role` and `college` filters cannot widen the list.
 - **Moving people.** Changing someone's college needs `role:assign`, like changing their role, because both decide who can see and manage them.
 - **Deleting a college** is refused while anyone belongs to it.
 
@@ -316,7 +317,7 @@ The brief names three roles but not what each may do, and leaves a few other thi
 ## Tests
 
 ```bash
-npm test                 # 346 tests in 22 files
+npm test                 # 351 tests in 22 files
 npm run test:coverage
 ```
 

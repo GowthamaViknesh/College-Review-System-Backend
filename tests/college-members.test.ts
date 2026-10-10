@@ -135,10 +135,10 @@ describe('a teacher creating accounts', () => {
 
         expect(own.status).toBe(200);
         expect(own.body.data.user.avatar).toContain(annaStudents[0].user.userId);
-        expect(other.status).toBe(403);
-        expect(other.body.message).toBe('You may only set the picture of students in your own college');
+        // Out of their reach, so reported as not found
+        expect(other.status).toBe(404);
         // Not through this route: their own picture is set from their profile
-        expect(colleague.status).toBe(403);
+        expect(colleague.status).toBe(404);
     });
 
     it('still cannot edit a student’s username or email', async () => {
@@ -208,6 +208,65 @@ describe('who a teacher sees on the users page', () => {
     });
 });
 
+describe('a teacher who has been given every user permission', () => {
+    // The case that prompted the rule: the Teacher role is edited to include view, edit and delete
+    async function empowered() {
+        const people = await campus();
+        await Role.updateOne({ name: 'teacher' }, { $addToSet: { permissions: { $each: ['user:read', 'user:update', 'user:delete'] } } });
+        return people;
+    }
+
+    it('still sees only the students of their own college: no admin, no other teachers, no other college', async () => {
+        const { annaTeacher, annaStudents, admin } = await empowered();
+        const res = await list(annaTeacher.auth, '?limit=50');
+
+        expect(usernames(res)).toEqual(annaStudents.map((s) => s.user.username).sort());
+        expect(JSON.stringify(res.body)).not.toContain(admin.user.email);
+        expect(JSON.stringify(res.body)).not.toContain(annaTeacher.user.email);
+    });
+
+    it('can edit and delete those students', async () => {
+        const { annaTeacher, annaStudents } = await empowered();
+        const [first, second] = annaStudents;
+
+        const edited = await request(app).patch(`/api/v1/users/${first.user.userId}`).set('Authorization', annaTeacher.auth).send({ username: 'renamed' });
+        const deleted = await request(app).delete(`/api/v1/users/${second.user.userId}`).set('Authorization', annaTeacher.auth);
+
+        expect(edited.status).toBe(200);
+        expect(deleted.status).toBe(204);
+        expect(await User.findById(second.user.id)).toBeNull();
+    });
+
+    it('cannot delete, edit or even fetch an administrator', async () => {
+        const { annaTeacher, admin } = await empowered();
+        const as = (method: 'get' | 'patch' | 'delete') => request(app)[method](`/api/v1/users/${admin.user.userId}`).set('Authorization', annaTeacher.auth);
+
+        expect((await as('delete')).status).toBe(404);
+        expect((await as('patch').send({ email: 'taken-over@example.com' })).status).toBe(404);
+        expect((await as('get')).status).toBe(404);
+        const still = await User.findById(admin.user.id);
+        expect(still).not.toBeNull();
+        expect(still!.email).toBe(admin.user.email);
+    });
+
+    it('cannot delete a teacher, or a student of another college', async () => {
+        const { annaTeacher, loyolaTeacher, loyolaStudent } = await empowered();
+        const colleague = await createUser('teacher', { college: String(annaTeacher.user.college) });
+
+        for (const target of [colleague, loyolaTeacher, loyolaStudent]) {
+            const res = await request(app).delete(`/api/v1/users/${target.user.userId}`).set('Authorization', annaTeacher.auth);
+            expect(res.status).toBe(404);
+            expect(await User.findById(target.user.id)).not.toBeNull();
+        }
+    });
+
+    it('cannot change anyone\u2019s role, which would be the way out of these limits', async () => {
+        const { annaTeacher, annaStudents } = await empowered();
+        const res = await request(app).patch(`/api/v1/users/${annaStudents[0].user.userId}/role`).set('Authorization', annaTeacher.auth).send({ role: 'admin' });
+        expect(res.status).toBe(403);
+    });
+});
+
 describe('who an administrator sees', () => {
     it('everyone, with their college, and can narrow the list to one college', async () => {
         const { admin, anna, loyola } = await campus();
@@ -239,9 +298,9 @@ describe('moving someone to another college', () => {
     });
 
     it('needs role:assign: being able to edit users is not enough', async () => {
-        const { annaStudents, loyola } = await campus();
+        const { anna, annaStudents, loyola } = await campus();
         await Role.create({ name: 'registrar', description: 'Keeps student records', permissions: ['user:read', 'user:update'] });
-        const registrar = await createUser('registrar');
+        const registrar = await createUser('registrar', { college: anna.id });
 
         const res = await move(registrar.auth, annaStudents[0].user.userId, loyola.collegeId);
 

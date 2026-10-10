@@ -61,6 +61,6 @@ export const updateUserRole: RequestHandler<{ id: string }> = async (req, res) =
 };
 
 export const deleteUser: RequestHandler<{ id: string }> = async (req, res) => {
-    await userService.deleteUser(req.user!.userId, req.params.id);
+    await userService.deleteUser(actorOf(req), req.params.id);
     res.status(204).send();
 };

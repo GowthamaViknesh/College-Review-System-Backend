@@ -20,10 +20,12 @@ export interface Actor {
     college: { id: string; collegeId: string } | null;
 }
 
-// Two kinds of people manage accounts:
-//  - someone with role:assign places people anywhere: any role, any college;
-//  - someone without it (a teacher, as the roles are first set up) works inside their own college and
-//    with student accounts only. They create students there, and with user:read:college they see them.
+// How far someone's user permissions reach.
+//  - With role:assign they administer every college: any account, any role, anywhere.
+//  - Without it they work inside their own college, on student accounts only. That holds for every
+//    user permission (view, create, edit, delete): granting a teacher more of them lets the teacher do
+//    more to their own students, never anything to another college's, to other teachers or to admins.
+// It is tied to role:assign, not to the role being called "teacher", so a custom role follows the same rule.
 const mayPlaceAnyone = (actor: Actor) => actor.permissions.has(PERMISSIONS.ROLE_ASSIGN);
 
 const roleNameOf = (user: { role: unknown }) => (user.role as { name?: string } | null)?.name;
@@ -88,13 +90,13 @@ export async function listUsers(actor: Actor, { page, limit, role, college, sear
     const nobody = { users: [], meta: paginationMeta(page, limit, 0) };
     let filter: { search?: string; role?: unknown; college?: string };
 
-    if (actor.permissions.has(PERMISSIONS.USER_READ)) {
+    if (mayPlaceAnyone(actor)) {
         const collegeDoc = college ? await collegeRepository.findByCollegeId(college) : null;
         // Asking for the users of a college that does not exist is an empty list, not an error
         if (college && !collegeDoc) return nobody;
         filter = { search, ...(role && { role: (await findRoleByName(role))._id }), ...(collegeDoc && { college: collegeDoc.id }) };
     } else {
-        // user:read:college: the students of the actor's own college, whatever the query asks for
+        // The students of the actor's own college, whatever the query asks for
         const studentRole = await roleRepository.findByName(DEFAULT_ROLE);
         if (!actor.college || !studentRole) return nobody;
         filter = { search, role: studentRole._id, college: actor.college.id };
@@ -112,37 +114,20 @@ async function findUser(id: string) {
     return user;
 }
 
-export async function getUserById(actor: Actor, id: string) {
+// The user someone asked for, if it is within their reach. Anyone outside it is reported as "not found",
+// the same as an id that does not exist, so they cannot discover which other accounts there are.
+async function findUserWithinReach(actor: Actor, id: string) {
     const user = await findUser(id);
-    // Someone limited to their own college is told "not found" for everyone else, so they cannot
-    // discover which other accounts exist
-    if (!actor.permissions.has(PERMISSIONS.USER_READ) && !isOwnStudent(actor, user)) throw new ApiError(404, 'User not found');
+    if (!mayPlaceAnyone(actor) && !isOwnStudent(actor, user)) throw new ApiError(404, 'User not found');
     return user;
 }
 
-// Finds the user someone wants to edit, and checks they may. Changing an account's email is enough to
-// take it over (ask for a password reset, read the code), so being able to edit users must not reach
-// further than being able to create them: without role:assign, only student accounts.
-async function findEditableUser(actor: Actor, id: string) {
-    const user = await findUser(id);
-    if (roleNameOf(user) !== DEFAULT_ROLE && !mayPlaceAnyone(actor)) {
-        throw new ApiError(403, `You may only edit users with the "${DEFAULT_ROLE}" role`);
-    }
-    return user;
-}
-
-// A picture is the one thing about an account that someone who can only create accounts may also set,
-// so that an account can be created complete. It reaches no further than their own college's students.
-async function findUserForPicture(actor: Actor, id: string) {
-    if (actor.permissions.has(PERMISSIONS.USER_UPDATE)) return findEditableUser(actor, id);
-
-    const user = await findUser(id);
-    if (!isOwnStudent(actor, user)) throw new ApiError(403, 'You may only set the picture of students in your own college');
-    return user;
+export function getUserById(actor: Actor, id: string) {
+    return findUserWithinReach(actor, id);
 }
 
 export async function updateUser(actor: Actor, id: string, { college, ...details }: UpdateUserInput) {
-    const user = await findEditableUser(actor, id);
+    const user = await findUserWithinReach(actor, id);
 
     // Which college someone belongs to decides who can see and manage them, so moving them is kept
     // with assigning roles
@@ -154,12 +139,12 @@ export async function updateUser(actor: Actor, id: string, { college, ...details
 }
 
 export async function setUserAvatar(actor: Actor, id: string, file: Buffer) {
-    const user = await findUserForPicture(actor, id);
+    const user = await findUserWithinReach(actor, id);
     return authzService.setAvatar(user, file);
 }
 
 export async function removeUserAvatar(actor: Actor, id: string) {
-    const user = await findUserForPicture(actor, id);
+    const user = await findUserWithinReach(actor, id);
     return authzService.removeAvatar(user.id, user.avatar);
 }
 
@@ -173,9 +158,11 @@ export async function updateUserRole(actorId: string, id: string, roleName: stri
     return user;
 }
 
-export async function deleteUser(actorId: string, id: string) {
-    if (actorId === id) throw new ApiError(400, 'You cannot delete your own account');
+export async function deleteUser(actor: Actor, id: string) {
+    if (actor.userId === id) throw new ApiError(400, 'You cannot delete your own account');
 
+    // Checked before anything is removed: a teacher with user:delete can remove their own students, nobody else
+    await findUserWithinReach(actor, id);
     const user = await userRepository.deleteByUserId(id);
     if (!user) throw new ApiError(404, 'User not found');
 

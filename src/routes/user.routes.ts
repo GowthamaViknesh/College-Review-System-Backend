@@ -56,8 +56,8 @@ router.post('/', audit(ACTIONS.USER_CREATE, 'user'), requirePermission(PERMISSIO
  *     tags: [Users]
  *     summary: List users
  *     description: >
- *       Requires `user:read` to see everyone, or `user:read:college` to see the students of your own college
- *       only. In the second case the `role` and `college` filters are ignored: the list is always those students.
+ *       Requires `user:read`. With `role:assign` as well you see everyone and may filter by role and college.
+ *       Without it you see the students of your own college only, and those two filters are ignored.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -106,7 +106,7 @@ router.post('/', audit(ACTIONS.USER_CREATE, 'user'), requirePermission(PERMISSIO
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-router.get('/', requireAnyPermission(PERMISSIONS.USER_READ, PERMISSIONS.USER_READ_COLLEGE), validate({ query: listUsersQuerySchema }), userController.listUsers);
+router.get('/', requirePermission(PERMISSIONS.USER_READ), validate({ query: listUsersQuerySchema }), userController.listUsers);
 
 /**
  * @openapi
@@ -115,8 +115,8 @@ router.get('/', requireAnyPermission(PERMISSIONS.USER_READ, PERMISSIONS.USER_REA
  *     tags: [Users]
  *     summary: Get one user
  *     description: >
- *       Requires `user:read`, or `user:read:college` for a student of your own college. Anyone outside what
- *       you may see is reported as not found.
+ *       Requires `user:read`. Without `role:assign` only a student of your own college can be fetched; anyone
+ *       else is reported as not found.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -137,7 +137,7 @@ router.get('/', requireAnyPermission(PERMISSIONS.USER_READ, PERMISSIONS.USER_REA
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-router.get('/:id', requireAnyPermission(PERMISSIONS.USER_READ, PERMISSIONS.USER_READ_COLLEGE), validate({ params: idParamSchema }), userController.getUser);
+router.get('/:id', requirePermission(PERMISSIONS.USER_READ), validate({ params: idParamSchema }), userController.getUser);
 
 /**
  * @openapi

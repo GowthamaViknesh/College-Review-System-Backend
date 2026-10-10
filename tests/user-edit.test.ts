@@ -2,6 +2,8 @@ import request from 'supertest';
 import app from '../src/app';
 import * as imageStorage from '../src/common/utils/image-storage';
 import { ActionLog } from '../src/models/action-log.model';
+import { Types } from 'mongoose';
+import { College } from '../src/models/college.model';
 import { Role } from '../src/models/role.model';
 import { User } from '../src/models/user.model';
 import { flushActionLogs } from '../src/services/action-log.service';
@@ -28,9 +30,13 @@ afterEach(async () => {
 afterAll(closeTestDb);
 
 // Someone who may edit users but not assign roles: the case the rules below are about
-async function createEditor() {
+// A college to put people in, made directly so it adds no users of its own
+const makeCollege = (name: string) => College.create({ name, country: 'India', state: 'Tamil Nadu', city: 'Chennai', description: '', createdBy: new Types.ObjectId() });
+
+// Their reach is the students of the college they belong to
+async function createEditor(college: { id: string }) {
     await Role.create({ name: 'registrar', description: 'Keeps student records', permissions: ['user:read', 'user:update'] });
-    return createUser('registrar');
+    return createUser('registrar', { college: college.id });
 }
 
 const edit = (auth: string, userId: string, body: object) => request(app).patch(`/api/v1/users/${userId}`).set('Authorization', auth).send(body);
@@ -98,24 +104,25 @@ describe('PATCH /api/v1/users/:id', () => {
         expect((await User.findById(target.user.id))!.username).toBe(target.user.username);
     });
 
-    it('lets someone without role:assign edit students only', async () => {
-        const editor = await createEditor();
-        const student = await createUser('student');
-        const teacher = await createUser('teacher');
-        const admin = await createUser('admin');
+    it('lets someone without role:assign edit only the students of their own college', async () => {
+        const [home, elsewhere] = [await makeCollege('Home College'), await makeCollege('Other College')];
+        const editor = await createEditor(home);
+        const student = await createUser('student', { college: home.id });
 
         expect((await edit(editor.auth, student.user.userId, { username: 'renamed' })).status).toBe(200);
 
-        for (const target of [teacher, admin]) {
+        // A teacher of the same college, a student of another one, and an admin: all out of reach,
+        // and reported as "not found" so their existence is not given away
+        const outOfReach = [await createUser('teacher', { college: home.id }), await createUser('student', { college: elsewhere.id }), await createUser('admin')];
+        for (const target of outOfReach) {
             const res = await edit(editor.auth, target.user.userId, { email: 'mine-now@example.com' });
-            expect(res.status).toBe(403);
-            expect(res.body.message).toBe('You may only edit users with the "student" role');
+            expect(res.status).toBe(404);
             expect((await User.findById(target.user.id))!.email).toBe(target.user.email);
         }
     });
 
     it('so an admin account cannot be taken over by changing its email and resetting its password', async () => {
-        const editor = await createEditor();
+        const editor = await createEditor(await makeCollege('Home College'));
         const admin = await createUser('admin');
 
         await edit(editor.auth, admin.user.userId, { email: editor.user.email.replace('@', '+takeover@') });
@@ -174,14 +181,19 @@ describe("another user's profile picture", () => {
         expect(me.body.data.user.avatar).toBe(`https://images.test/avatar/${target.user.userId}.jpg`);
     });
 
-    it('follows the same rules as editing: the permission, and students only without role:assign', async () => {
-        const editor = await createEditor();
-        const teacher = await createUser('teacher');
-        const student = await createUser('student');
+    it('follows the same rule as editing: without role:assign, only the students of your own college', async () => {
+        const [home, elsewhere] = [await makeCollege('Home College'), await makeCollege('Other College')];
+        const editor = await createEditor(home);
+        const teacher = await createUser('teacher', { college: home.id });
+        const student = await createUser('student', { college: home.id });
+        const outsider = await createUser('student', { college: elsewhere.id });
+        const reviewer = await createUser('student', { college: home.id });
 
-        expect((await upload(teacher.auth, student.user.userId)).status).toBe(403);
-        expect((await upload(editor.auth, teacher.user.userId)).status).toBe(403);
-        expect((await remove(editor.auth, teacher.user.userId)).status).toBe(403);
+        // A student has neither user:update nor user:create
+        expect((await upload(reviewer.auth, student.user.userId)).status).toBe(403);
+        expect((await upload(editor.auth, teacher.user.userId)).status).toBe(404);
+        expect((await remove(editor.auth, teacher.user.userId)).status).toBe(404);
+        expect((await upload(editor.auth, outsider.user.userId)).status).toBe(404);
         expect(uploadImage).not.toHaveBeenCalled();
 
         expect((await upload(editor.auth, student.user.userId)).status).toBe(200);

@@ -3,7 +3,6 @@
 // Roles (which group permissions) are the dynamic part and are managed through the API.
 export const PERMISSIONS = {
     USER_READ: 'user:read',
-    USER_READ_COLLEGE: 'user:read:college',
     USER_CREATE: 'user:create',
     USER_UPDATE: 'user:update',
     USER_DELETE: 'user:delete',
@@ -27,16 +26,15 @@ export const PERMISSIONS = {
 export type PermissionName = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const PERMISSION_DESCRIPTIONS: Record<PermissionName, string> = {
-    'user:read': 'View every user and their details',
-    'user:read:college': 'View the students of your own college only',
-    'user:create': 'Create student accounts in your own college (any role and any college also needs role:assign)',
-    'user:update': "Edit another user's username, email and picture (for anyone but a student this also needs role:assign)",
-    'user:delete': 'Delete user accounts',
+    'user:read': 'View users: the students of your own college, or everyone if you also hold role:assign',
+    'user:create': 'Create student accounts in your own college, or any account anywhere if you also hold role:assign',
+    'user:update': "Edit a user's username, email and picture: students of your own college, or anyone if you also hold role:assign",
+    'user:delete': 'Delete user accounts: students of your own college, or anyone if you also hold role:assign',
     'role:read': 'View roles and the permissions catalogue',
     'role:create': 'Create custom roles',
     'role:update': 'Edit a role and the permissions it grants',
     'role:delete': 'Delete custom roles',
-    'role:assign': 'Change which role a user has and which college they belong to',
+    'role:assign': 'Change which role a user has and which college they belong to. Also lifts the "own college\'s students only" limit from the user permissions.',
     'college:create': 'Add colleges',
     'college:update': 'Edit colleges',
     'college:delete': 'Delete colleges',
