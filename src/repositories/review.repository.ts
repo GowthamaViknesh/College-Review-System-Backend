@@ -13,6 +13,7 @@ const SORTS: Record<ReviewSort, Record<string, 1 | -1>> = {
     oldest: { createdAt: 1, _id: 1 },
     highest: { rating: -1, createdAt: -1, _id: -1 },
     lowest: { rating: 1, createdAt: -1, _id: -1 },
+    helpful: { 'votes.count': -1, createdAt: -1, _id: -1 },
 };
 
 function buildFilter({ college, user, minRating, maxRating, search }: ReviewFilter) {
@@ -52,6 +53,18 @@ export async function create(fields: { college: string; user: string; rating: nu
 
 export function updateByReviewId(reviewId: string, fields: UpdateReviewInput) {
     return Review.findOneAndUpdate({ reviewId }, fields, { returnDocument: 'after', runValidators: true }).populate(AUTHOR_AND_COLLEGE);
+}
+
+export function addVote(reviewId: string, userId: string) {
+    return Review.updateOne({ reviewId, 'votes.userIds': { $ne: userId } }, { $addToSet: { 'votes.userIds': userId }, $inc: { 'votes.count': 1 } }, { timestamps: false });
+}
+
+export function removeVote(reviewId: string, userId: string) {
+    return Review.updateOne({ reviewId, 'votes.userIds': userId }, { $pull: { 'votes.userIds': userId }, $inc: { 'votes.count': -1 } }, { timestamps: false });
+}
+
+export function removeVotesByUser(userId: string) {
+    return Review.updateMany({ 'votes.userIds': userId }, { $pull: { 'votes.userIds': userId }, $inc: { 'votes.count': -1 } }, { timestamps: false });
 }
 
 export function deleteByReviewId(reviewId: string) {

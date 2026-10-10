@@ -169,6 +169,7 @@ export async function deleteUser(actor: Actor, id: string) {
     // A removed account should not keep influencing college ratings
     // Everything that belonged to the account is linked to it by MongoDB's id, not the public one
     await reviewRepository.deleteByUser(user.id);
+    await reviewRepository.removeVotesByUser(user.userId);
     await refreshTokenRepository.deleteByUser(user.id);
     await passwordResetRepository.deleteByUser(user.id);
     if (user.avatar) await deleteImage(user.avatar.publicId);

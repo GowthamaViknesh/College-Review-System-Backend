@@ -3,7 +3,6 @@ import * as reviewService from '../services/review.service';
 import { setAudit } from '../common/middlewares/audit.middleware';
 
 export const listReviews: RequestHandler = async (req, res) => {
-    // req.query was validated and given defaults by the validate middleware
     const { reviews, meta } = await reviewService.listReviews(req.query as any);
     res.json({ success: true, data: { reviews }, meta });
 };
@@ -22,7 +21,6 @@ export const createReview: RequestHandler = async (req, res) => {
 };
 
 export const updateReview: RequestHandler<{ id: string }> = async (req, res) => {
-    // The new rating matters for the college's average; the comment text itself is not copied into the log
     setAudit(res, { details: { changed: Object.keys(req.body), ...(req.body.rating && { rating: req.body.rating }) } });
 
     const review = await reviewService.updateReview(req.user!.id, req.params.id, req.body);
@@ -32,4 +30,14 @@ export const updateReview: RequestHandler<{ id: string }> = async (req, res) => 
 export const deleteReview: RequestHandler<{ id: string }> = async (req, res) => {
     await reviewService.deleteReview(req.user!.id, req.permissions!, req.params.id);
     res.status(204).send();
+};
+
+export const upvoteReview: RequestHandler<{ id: string }> = async (req, res) => {
+    const review = await reviewService.upvoteReview(req.user!, req.params.id);
+    res.json({ success: true, data: { review } });
+};
+
+export const removeUpvote: RequestHandler<{ id: string }> = async (req, res) => {
+    const review = await reviewService.removeUpvote(req.user!, req.params.id);
+    res.json({ success: true, data: { review } });
 };

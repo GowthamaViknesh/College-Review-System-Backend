@@ -45,7 +45,7 @@ const router = Router();
  *         schema: { type: string, maxLength: 50 }
  *       - name: sort
  *         in: query
- *         schema: { type: string, enum: [newest, oldest, highest, lowest], default: newest }
+ *         schema: { type: string, enum: [newest, oldest, highest, lowest, helpful], default: newest }
  *     responses:
  *       200:
  *         description: One page of reviews
@@ -206,5 +206,65 @@ router.patch(
  *         $ref: '#/components/responses/NotFound'
  */
 router.delete('/:id', audit(ACTIONS.REVIEW_DELETE, 'review'), protect, validate({ params: idParamSchema }), reviewController.deleteReview);
+
+/**
+ * @openapi
+ * /reviews/{id}/upvote:
+ *   post:
+ *     tags: [Reviews]
+ *     summary: Upvote a review
+ *     description: >
+ *       Requires `review:create`, so it is open to the people who write reviews. Each person can upvote a review
+ *       once, and nobody can upvote their own. Upvoting again changes nothing.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IdParam'
+ *     responses:
+ *       200:
+ *         description: The review, with its updated `votes`
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ReviewResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.post('/:id/upvote', protect, requirePermission(PERMISSIONS.REVIEW_CREATE), validate({ params: idParamSchema }), reviewController.upvoteReview);
+
+/**
+ * @openapi
+ * /reviews/{id}/upvote:
+ *   delete:
+ *     tags: [Reviews]
+ *     summary: Take back your upvote
+ *     description: Requires `review:create`. Succeeds whether or not you had upvoted the review.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/IdParam'
+ *     responses:
+ *       200:
+ *         description: The review, with its updated `votes`
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ReviewResponse'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+router.delete('/:id/upvote', protect, requirePermission(PERMISSIONS.REVIEW_CREATE), validate({ params: idParamSchema }), reviewController.removeUpvote);
 
 export default router;

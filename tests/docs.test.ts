@@ -58,6 +58,8 @@ describe('API documentation', () => {
                 'POST /reviews',
                 'PATCH /reviews/{id}',
                 'DELETE /reviews/{id}',
+                'POST /reviews/{id}/upvote',
+                'DELETE /reviews/{id}/upvote',
                 'GET /action-logs',
                 'GET /stats/overview',
             ].sort(),

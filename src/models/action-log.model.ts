@@ -24,56 +24,56 @@ const actionLogSchema = new Schema<IActionLog>(
         action: {
             type: String,
             enum: ALL_ACTIONS,
-            required: true
+            required: true,
         },
 
         outcome: {
             type: String,
             enum: OUTCOMES,
-            required: true
+            required: true,
         },
 
         target: {
             type: {
                 type: String,
                 enum: [...TARGET_TYPES, null],
-                default: null
+                default: null,
             },
             id: {
                 type: String,
-                default: null
+                default: null,
             },
         },
 
         details: {
             type: Schema.Types.Mixed,
-            default: {}
+            default: {},
         },
 
         ip: {
             type: String,
-            default: null
+            default: null,
         },
 
         method: {
             type: String,
-            required: true
+            required: true,
         },
 
         path: {
             type: String,
-            required: true
+            required: true,
         },
 
         statusCode: {
             type: Number,
-            required: true
+            required: true,
         },
     },
     {
         timestamps: {
             createdAt: true,
-            updatedAt: false
+            updatedAt: false,
         },
         minimize: false,
         toJSON: {
