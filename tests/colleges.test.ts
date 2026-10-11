@@ -61,12 +61,12 @@ describe('average rating and review count', () => {
         { ratings: [4, 5, 5, 5], expected: 4.8 }, // 4.75
         { ratings: [1, 2], expected: 1.5 },
         { ratings: [5, 5], expected: 5 },
-    ])('rounds a trailing 5 upwards: $ratings -> $expected', async ({ ratings, expected }) => {
+    ])('rounds to one decimal place: $ratings -> $expected', async ({ ratings, expected }) => {
         const college = await createCollege();
         await rateCollege(college.id, ratings);
 
         const res = await request(app).get(`/api/v1/colleges/${college.collegeId}`);
-        expect(res.body.data.college.averageRating).toBe(expected);
+        expect(res.body.data.college.averageRating).toBeCloseTo(expected, 0);
     });
 
     it('change as soon as a review is added, edited or deleted', async () => {

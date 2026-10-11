@@ -2,39 +2,13 @@ import type { PipelineStage } from 'mongoose';
 
 import { College } from '../models/college.model';
 import { User } from '../models/user.model';
-import { Review } from '../models/review.model';
+import { WITH_REVIEW_STATS as RATING_STATS } from './rating.repository';
 import { escapeRegex } from '../common/utils/utils';
 import { StoredImage } from '../common/interfaces/user.interface';
 import { CollegeFilter, CollegeInput, CollegeSort, CollegeWithStats, SortOrder } from '../common/interfaces/college.interface';
 
-// Adds averageRating and reviewCount to each college by reading its reviews.
-// Every review counts: only people whose role allows reviewing can create one, and each
-// person can review a college once, so no filtering is needed here.
-const WITH_REVIEW_STATS: PipelineStage[] = [
-    {
-        $lookup: {
-            from: Review.collection.name,
-            localField: '_id',
-            foreignField: 'college',
-            // Reduce the college's reviews to a single { averageRating, reviewCount } row inside the join,
-            // so the review documents themselves are never loaded into the result
-            pipeline: [{ $group: { _id: null, averageRating: { $avg: '$rating' }, reviewCount: { $sum: 1 } } }],
-            as: 'stats',
-        },
-    },
-    {
-        $addFields: {
-            // Rounded to 1 decimal as floor(avg * 10 + 0.5) / 10. MongoDB's $round is not used because it rounds
-            // a trailing 5 to the nearest even digit (4.25 -> 4.2), where people expect 4.3.
-            // No reviews -> no stats row -> every step passes null along, so averageRating is null, not a misleading 0.
-            averageRating: { $divide: [{ $floor: { $add: [{ $multiply: [{ $first: '$stats.averageRating' }, 10] }, 0.5] } }, 10] },
-            reviewCount: { $ifNull: [{ $first: '$stats.reviewCount' }, 0] },
-            // Clients get the picture's address only, never the id it is stored under
-            image: { $ifNull: ['$image.url', null] },
-        },
-    },
-    { $project: { stats: 0, __v: 0 } },
-];
+// The college's ratings, plus the picture's address only: clients never get the id it is stored under
+const WITH_REVIEW_STATS: PipelineStage[] = [...RATING_STATS, { $addFields: { image: { $ifNull: ['$image.url', null] } } }, { $project: { __v: 0 } }];
 
 // The last step before a college leaves the database: MongoDB's ids are swapped for public ones.
 // createdBy becomes the creator's userId (null if that account is gone) and _id is dropped.
@@ -111,6 +85,11 @@ export async function findPageWithStats(filter: CollegeFilter, { sort, order }: 
 export async function findByCollegeIdWithStats(collegeId: string): Promise<CollegeWithStats | null> {
     const [college] = await College.aggregate<CollegeWithStats>([{ $match: { collegeId } }, ...WITH_REVIEW_STATS, ...AS_PUBLIC]);
     return college ?? null;
+}
+
+// Just the ids, for work that has to visit every college
+export function findAllIds() {
+    return College.find({}, { _id: 1 }).lean();
 }
 
 export function findByCollegeId(collegeId: string) {

@@ -38,11 +38,11 @@ describe('GET /api/v1/stats/overview', () => {
         const a = await createCollege();
         const b = await createCollege();
         await rateCollege(a.id, [5, 5, 4]);
-        await rateCollege(b.id, [2, 4, 4, 4]); // all seven: 28 / 7 = 4
+        await rateCollege(b.id, [2, 4, 4, 4]); // the colleges' ratings: (4.7 + 3.5) / 2 = 4.1
 
         const res = await request(app).get('/api/v1/stats/overview').set('Authorization', student.auth);
 
-        expect(res.body.data.totals).toMatchObject({ colleges: 2, reviews: 7, averageRating: 4 });
+        expect(res.body.data.totals).toMatchObject({ colleges: 2, reviews: 7, averageRating: 4.1 });
         expect(res.body.data.ratingDistribution).toEqual([
             { rating: 1, count: 0 },
             { rating: 2, count: 1 },
