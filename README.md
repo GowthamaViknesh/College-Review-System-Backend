@@ -313,6 +313,15 @@ Responses have one shape:
 
 Every review carries `votes: { count, userIds }`: how many upvotes it has and the `userId` of each person who gave one.
 
+### Reports and moderation
+
+| Method and path | Needs | What it does |
+|---|---|---|
+| `POST /reports` | `review:create` | Report someone else's review. Reasons: `spam`, `abusive`, `off_topic`, `false_information`, `other`. A review with 3 open reports is hidden from the lists until a moderator decides. |
+| `GET /reports` | `report:moderate` | The moderation queue. Query: `page`, `limit`, `status`, `reason`, `search`. |
+| `GET /reports/:id` | Logged in | One report, so the person who filed it can check on it |
+| `PATCH /reports/:id` | Logged in | Resolve a report: `actioned` hides the review and closes its other reports, `dismissed` closes this one |
+
 ### Users, roles and logs
 
 | Method and path | Needs | What it does |

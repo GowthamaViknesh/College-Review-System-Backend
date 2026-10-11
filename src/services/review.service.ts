@@ -1,6 +1,7 @@
 import * as userRepository from '../repositories/user.repository';
 import * as reviewRepository from '../repositories/review.repository';
 import * as collegeRepository from '../repositories/college.repository';
+import * as reportRepository from '../repositories/report.repository';
 
 import { PERMISSIONS } from '../common/constants/permissions';
 import { ApiError, paginationMeta } from '../common/utils/utils';
@@ -59,6 +60,8 @@ export async function deleteReview(actorId: string, actorPermissions: Set<string
     }
 
     await reviewRepository.deleteByReviewId(id);
+    // Reports about a review that no longer exists have nothing left to moderate
+    await reportRepository.deleteByReview(review.id);
 }
 
 export async function upvoteReview(actor: { id: string; userId: string }, id: string) {

@@ -37,6 +37,7 @@ const definition = {
         { name: 'Reviews', description: 'Ratings and comments written by students' },
         { name: 'Action logs', description: 'A read-only record of who did what' },
         { name: 'Stats', description: 'Summary figures for the dashboard' },
+        { name: 'Reports', description: 'Reported reviews and the moderation queue' },
     ],
     components: {
         securitySchemes: {
@@ -223,6 +224,59 @@ const definition = {
                     data: { type: 'object', properties: { review: { $ref: '#/components/schemas/Review' } } },
                 },
             },
+            CreateReportRequest: {
+                type: 'object',
+                required: ['review', 'reason'],
+                properties: {
+                    review: { type: 'string', description: "The review's reviewId", example: 'h3Fq8ZsN1yUd6RoE' },
+                    reason: { type: 'string', enum: ['spam', 'abusive', 'off_topic', 'false_information', 'other'], example: 'abusive' },
+                    details: { type: 'string', maxLength: 500, example: 'Insults a named lecturer.' },
+                },
+            },
+            ModerateReportRequest: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                    status: { type: 'string', enum: ['dismissed', 'actioned'], example: 'actioned' },
+                },
+            },
+            Report: {
+                type: 'object',
+                properties: {
+                    reportId: { type: 'string', example: 'Rp4mQ9tLw2Rk7ZpA' },
+                    review: {
+                        type: 'object',
+                        properties: {
+                            reviewId: { type: 'string' },
+                            rating: { type: 'integer' },
+                            comment: { type: 'string' },
+                            hidden: { type: 'boolean' },
+                        },
+                    },
+                    reporter: {
+                        type: 'object',
+                        properties: {
+                            userId: { type: 'string' },
+                            username: { type: 'string' },
+                            email: { type: 'string', format: 'email' },
+                        },
+                    },
+                    reason: { type: 'string', example: 'abusive' },
+                    details: { type: 'string' },
+                    status: { type: 'string', enum: ['open', 'dismissed', 'actioned'] },
+                    resolvedBy: { type: 'object', nullable: true, properties: { userId: { type: 'string' }, username: { type: 'string' } } },
+                    resolvedAt: { type: 'string', format: 'date-time', nullable: true },
+                    createdAt: { type: 'string', format: 'date-time' },
+                    updatedAt: { type: 'string', format: 'date-time' },
+                },
+            },
+            ReportResponse: {
+                type: 'object',
+                properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'object', properties: { report: { $ref: '#/components/schemas/Report' } } },
+                },
+            },
             ActionName: { type: 'string', enum: ALL_ACTIONS, example: 'role:assign' },
             ActionLog: {
                 type: 'object',
@@ -242,7 +296,7 @@ const definition = {
                         type: 'object',
                         description: 'What it was done to',
                         properties: {
-                            type: { type: 'string', enum: ['user', 'role', 'college', 'review'], example: 'user' },
+                            type: { type: 'string', enum: ['user', 'role', 'college', 'review', 'report'], example: 'user' },
                             id: { type: 'string', nullable: true, example: 'Rw6Ht1NcJ4kPz8Ys' },
                         },
                     },

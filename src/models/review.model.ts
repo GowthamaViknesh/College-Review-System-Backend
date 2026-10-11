@@ -50,6 +50,10 @@ const reviewSchema = new Schema<IReview>(
                 default: [],
             },
         },
+        hidden: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
