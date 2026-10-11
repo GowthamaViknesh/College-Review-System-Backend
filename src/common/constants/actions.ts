@@ -25,6 +25,9 @@ export const ACTIONS = {
     REVIEW_DELETE: 'review:delete',
     REVIEW_UPVOTE: 'review:upvote',
     REVIEW_UPVOTE_REMOVE: 'review:upvote:remove',
+
+    REPORT_CREATE: 'report:create',
+    REPORT_RESOLVE: 'report:resolve',
 } as const;
 
 export type ActionName = (typeof ACTIONS)[keyof typeof ACTIONS];
@@ -33,5 +36,5 @@ export const ALL_ACTIONS = Object.values(ACTIONS);
 export const OUTCOMES = ['success', 'denied', 'failed'] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
-export const TARGET_TYPES = ['user', 'role', 'college', 'review'] as const;
+export const TARGET_TYPES = ['user', 'role', 'college', 'review', 'report'] as const;
 export type TargetType = (typeof TARGET_TYPES)[number];

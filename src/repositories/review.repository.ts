@@ -17,7 +17,8 @@ const SORTS: Record<ReviewSort, Record<string, 1 | -1>> = {
 };
 
 function buildFilter({ college, user, minRating, maxRating, search }: ReviewFilter) {
-    const filter: Record<string, unknown> = {};
+    // Hidden reviews stay out of the lists until a moderator puts them back
+    const filter: Record<string, unknown> = { hidden: { $ne: true } };
     if (college) filter.college = college;
     if (user) filter.user = user;
     if (minRating || maxRating) {
@@ -65,6 +66,11 @@ export function removeVote(reviewId: string, userId: string) {
 
 export function removeVotesByUser(userId: string) {
     return Review.updateMany({ 'votes.userIds': userId }, { $pull: { 'votes.userIds': userId }, $inc: { 'votes.count': -1 } }, { timestamps: false });
+}
+
+// review is MongoDB's id of the review
+export function setHidden(review: string, hidden: boolean) {
+    return Review.updateOne({ _id: review }, { hidden }, { timestamps: false });
 }
 
 export function deleteByReviewId(reviewId: string) {

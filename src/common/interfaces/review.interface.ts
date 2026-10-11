@@ -6,6 +6,8 @@ export interface IReview {
     user: Types.ObjectId;
     rating: number;
     votes: { count: number; userIds: string[] };
+    // Taken out of the review lists after enough reports, or by a moderator
+    hidden: boolean;
     comment: string;
     createdAt: Date;
     updatedAt: Date;

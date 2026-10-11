@@ -7,6 +7,7 @@ import reviewRoutes from './review.routes';
 import collegeRoutes from './college.routes';
 import actionLogRoutes from './action-log.routes';
 import statsRoutes from './stats.routes';
+import reportRoutes from './report.routes';
 import { PERMISSIONS } from '../common/constants/permissions';
 import { listPermissions } from '../controllers/role.controller';
 import { protect, requirePermission } from '../common/middlewares/auth.middleware';
@@ -21,6 +22,7 @@ router.use('/colleges', collegeRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/action-logs', actionLogRoutes);
 router.use('/stats', statsRoutes);
+router.use('/reports', reportRoutes);
 
 /**
  * @openapi

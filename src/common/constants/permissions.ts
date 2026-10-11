@@ -20,6 +20,8 @@ export const PERMISSIONS = {
     REVIEW_CREATE: 'review:create',
     REVIEW_DELETE_ANY: 'review:delete:any',
 
+    REPORT_MODERATE: 'report:moderate',
+
     LOG_READ: 'log:read',
 } as const;
 
@@ -40,6 +42,7 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionName, string> = {
     'college:delete': 'Delete colleges',
     'review:create': 'Write one review per college, and edit your own',
     'review:delete:any': "Delete any user's review (moderation)",
+    'report:moderate': 'See reported reviews and resolve the reports: hide the review or dismiss the report',
     'log:read': 'View the action log: who did what, and what was refused',
 };
 
